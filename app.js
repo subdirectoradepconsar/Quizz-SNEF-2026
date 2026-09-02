@@ -15,6 +15,7 @@ const DB_STATE_PATH = `${DB_NAMESPACE}estado_trivia`;
 const CAIDAS = [1, 2, 3];
 const MAX_PREGUNTAS_POR_CAIDA = 6;
 const META_ACIERTOS = 3;
+const CARTEL_CAIDA_DURACION_MS = 7000;
 const impactBannerTimeouts = new Map();
 
 function showImpactBanner(type, targetId) {
@@ -153,7 +154,8 @@ const estadoInicial = {
   opcionesIncorrectas: [],
   tipoImpacto: null,
   secuenciaImpacto: 0,
-  requiereDesempate: false
+  requiereDesempate: false,
+  inicioCartelCaida: Date.now()
 };
 
 const FASES = ['INTRO', 'CARTEL_CAIDA', 'PREGUNTA', 'REVELACION', 'MASCARA_VS_MASCARA', 'PODIO'];
@@ -204,7 +206,10 @@ function normalizarEstado(valor) {
     opcionesIncorrectas: normalizarOpcionesIncorrectas(origen.opcionesIncorrectas),
     tipoImpacto,
     secuenciaImpacto: enteroAcotado(origen.secuenciaImpacto ?? origen.secuenciaError, 0, Number.MAX_SAFE_INTEGER, 0),
-    requiereDesempate: Boolean(origen.requiereDesempate)
+    requiereDesempate: Boolean(origen.requiereDesempate),
+    inicioCartelCaida: Number.isFinite(Number(origen.inicioCartelCaida)) && Number(origen.inicioCartelCaida) > 0
+      ? Number(origen.inicioCartelCaida)
+      : null
   };
 }
 
@@ -396,10 +401,12 @@ class TriviaApp {
       this.state.ganadorCombate = esquina;
       this.state.fase = 'MASCARA_VS_MASCARA';
       this.state.efectoSonido = 'VICTORIA';
+      this.state.inicioCartelCaida = null;
     } else {
       this.state.caidaActual = Math.min(3, this.state.caidaActual + 1);
       this.state.fase = 'CARTEL_CAIDA';
       this.state.efectoSonido = 'CAMPANA';
+      this.state.inicioCartelCaida = Date.now();
     }
 
     this.publicar();
@@ -412,6 +419,7 @@ class TriviaApp {
     if (this.combateTerminado() && !['MASCARA_VS_MASCARA', 'PODIO'].includes(nuevaFase)) return false;
     this.state.fase = nuevaFase;
     this.state.efectoSonido = nuevaFase === 'CARTEL_CAIDA' ? 'CAMPANA' : null;
+    this.state.inicioCartelCaida = nuevaFase === 'CARTEL_CAIDA' ? Date.now() : null;
     this.publicar();
     return true;
   }
@@ -427,6 +435,7 @@ class TriviaApp {
   reiniciarCombate() {
     this.state = clonar(estadoInicial);
     this.state.ordenPreguntas = crearOrdenPreguntas();
+    this.state.inicioCartelCaida = Date.now();
     this.publicar();
     return true;
   }
@@ -481,11 +490,12 @@ if (typeof window !== 'undefined') {
   window.DB_STATE_PATH = DB_STATE_PATH;
   window.estadoInicial = estadoInicial;
   window.META_ACIERTOS = META_ACIERTOS;
+  window.CARTEL_CAIDA_DURACION_MS = CARTEL_CAIDA_DURACION_MS;
   window.obtenerTotalPreguntasCaida = obtenerTotalPreguntasCaida;
   window.obtenerPreguntaActual = obtenerPreguntaActual;
   window.triviaApp = new TriviaApp();
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { TriviaApp, estadoInicial, normalizarEstado, crearOrdenPreguntas, obtenerPreguntaActual, obtenerTotalPreguntasCaida, META_ACIERTOS, DB_NAMESPACE, DB_STATE_PATH };
+  module.exports = { TriviaApp, estadoInicial, normalizarEstado, crearOrdenPreguntas, obtenerPreguntaActual, obtenerTotalPreguntasCaida, META_ACIERTOS, CARTEL_CAIDA_DURACION_MS, DB_NAMESPACE, DB_STATE_PATH };
 }
