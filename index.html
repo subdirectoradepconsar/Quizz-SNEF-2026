@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CONSAR - Gran Combate de Lucha Libre Financiera</title>
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Custom Styles & Fonts -->
+  <link rel="stylesheet" href="styles.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            consarGuinda: '#691C32',
+            consarDorado: '#C5A059',
+            consarNavy: '#102A43',
+            tecnica: '#0284C7',
+            ruda: '#DC2626'
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 min-h-screen text-slate-100 flex flex-col justify-between p-4 md:p-8">
+
+  <!-- Header Branding -->
+  <header class="max-w-6xl mx-auto w-full flex flex-col md:flex-row items-center justify-center gap-4 pb-6 border-b border-yellow-600/30">
+    <div class="flex items-center gap-4">
+      <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500 to-yellow-600 flex items-center justify-center shadow-lg shadow-amber-500/20 border border-yellow-300/40">
+        <!-- CONSAR Lucha Emblem SVG -->
+        <svg class="w-10 h-10 text-slate-950 fill-current" viewBox="0 0 24 24">
+          <path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-5.45 9-12V7l-9-5zm0 2.18l7 3.89v5.18c0 4.54-3.14 8.78-7 9.87-3.86-1.09-7-5.33-7-9.87V8.07l7-3.89zM12 6a3.5 3.5 0 0 0-3.5 3.5c0 1.25.66 2.35 1.65 2.95C8.82 13.56 8 15.17 8 17h2c0-1.66 1.34-3 3-3s3 1.34 3 3h2c0-1.83-.82-3.44-2.15-4.55.99-.6 1.65-1.7 1.65-2.95A3.5 3.5 0 0 0 12 6z"/>
+        </svg>
+      </div>
+      <div>
+        <span class="text-xs tracking-widest text-amber-400 font-semibold uppercase">Educación Financiera Afores</span>
+        <h1 class="text-2xl md:text-3xl font-extrabold text-white tracking-tight">CONSAR <span class="text-amber-400 font-lucha tracking-wider">TRIVIA LUCHA LIBRE</span></h1>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Hero & Module Cards -->
+  <main class="max-w-5xl mx-auto w-full my-8 flex-1 flex flex-col justify-center">
+
+    <div class="text-center mb-10">
+      <h2 class="text-4xl md:text-6xl font-lucha tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-500 drop-shadow-md">
+        ¡EL GRAN COMBATE POR TU RETIRO!
+      </h2>
+      <p class="text-slate-300 max-w-2xl mx-auto text-base md:text-lg mt-2">
+        Selecciona el módulo correspondiente. Abre la Tablet del Moderador en tu dispositivo móvil o tablet y la Pantalla Gigante en la computadora conectada al proyector.
+      </p>
+    </div>
+
+    <!-- 2-Module Launcher Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+
+      <!-- Módulo A: Moderador Card -->
+      <div class="glass-panel rounded-3xl p-8 flex flex-col justify-between border-t-4 border-amber-500 hover:scale-[1.02] transition-all shadow-xl group">
+        <div>
+          <div class="w-14 h-14 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center mb-5 group-hover:bg-amber-500 group-hover:text-slate-950 transition-colors">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+            </svg>
+          </div>
+          <span class="text-xs font-bold text-amber-400 tracking-wider uppercase">Módulo A (Tablet)</span>
+          <h3 class="text-2xl font-bold text-white mb-2">Tablet del Moderador</h3>
+          <p class="text-sm text-slate-400 mb-6 leading-relaxed">
+            Panel de control táctil optimizado para tablets. Selección de modos de juego, marcadores consolidados, asignación automática de puntos y disparadores visuales.
+          </p>
+        </div>
+        <a href="moderator.html" target="_blank" class="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-600 text-slate-950 font-bold text-center hover:brightness-110 shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 text-base">
+          <span>Abrir Panel de Moderación</span>
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+        </a>
+      </div>
+
+      <!-- Módulo B: Pantalla Gigante Card -->
+      <div class="glass-panel rounded-3xl p-8 flex flex-col justify-between border-t-4 border-sky-500 hover:scale-[1.02] transition-all shadow-xl group">
+        <div>
+          <div class="w-14 h-14 rounded-2xl bg-sky-500/20 text-sky-400 flex items-center justify-center mb-5 group-hover:bg-sky-500 group-hover:text-slate-950 transition-colors">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+            </svg>
+          </div>
+          <span class="text-xs font-bold text-sky-400 tracking-wider uppercase">Módulo B (Proyector)</span>
+          <h3 class="text-2xl font-bold text-white mb-2">Pantalla Gigante</h3>
+          <p class="text-sm text-slate-400 mb-6 leading-relaxed">
+            Vista de proyector optimizada para el público. Tipografía gigante, animaciones espectaculares al otorgar puntos, estado 'Cargando pregunta...' y revelado en vivo.
+          </p>
+        </div>
+        <a href="screen.html" target="_blank" class="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 text-white font-bold text-center hover:brightness-110 shadow-lg shadow-sky-500/20 flex items-center justify-center gap-2 text-base">
+          <span>Abrir Vista de Proyector</span>
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+        </a>
+      </div>
+
+    </div>
+
+    <!-- Quick All-in-One Launcher Button -->
+    <div class="mt-10 text-center">
+      <button onclick="launchAllScreens()" class="py-4 px-8 rounded-2xl bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold border border-amber-500/40 shadow-xl transition-all inline-flex items-center gap-3">
+        <svg class="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+        <span>⚡ Lanzar Módulos en Ventanas Independientes</span>
+      </button>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="max-w-5xl mx-auto w-full text-center py-4 text-xs text-slate-500 border-t border-slate-800">
+    <p>CONSAR — Comisión Nacional del Sistema de Ahorro para el Retiro • Dinámica de Educación Financiera Presencial</p>
+  </footer>
+
+  <script>
+    function launchAllScreens() {
+      window.open('moderator.html', '_blank', 'width=1100,height=800');
+      window.open('screen.html', '_blank', 'width=1280,height=800');
+    }
+  </script>
+</body>
+</html>

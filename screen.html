@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="es" class="screen-page">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Arena · Lucha Libre SNEF 2026</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <link rel="stylesheet" href="styles.css?v=20260902-1">
+</head>
+<body id="screenBody" class="arena-shell min-h-screen overflow-x-hidden text-white select-none">
+  <audio id="boxingBellAudio" src="Sonidocampanadebox.mp3" preload="auto"></audio>
+  <div id="screenImpactBanner" class="impact-banner banner-incorrect" role="status" aria-live="assertive">❌ ¡RESPUESTA INCORRECTA!</div>
+
+  <header class="relative z-20 mx-auto grid max-w-7xl grid-cols-[1fr_auto_1fr] items-center gap-3 px-3 py-4 md:gap-8 md:px-8">
+    <section id="cornerRoja" class="corner-score corner-red">
+      <div>
+        <p class="corner-name text-red-300">Esquina roja</p>
+        <div id="screenVidasRoja" class="corner-life-masks mt-1"></div>
+      </div>
+    </section>
+
+    <div class="text-center">
+      <p class="hidden text-[10px] font-black uppercase tracking-[.32em] text-amber-300 sm:block">SNEF 2026</p>
+      <div id="globalScore" class="font-lucha text-4xl tracking-widest text-amber-300 md:text-6xl">0 – 0</div>
+      <span id="caidaBadge" class="rounded-full bg-amber-400 px-3 py-1 text-[10px] font-black uppercase text-slate-950 md:text-xs">Caída 1</span>
+    </div>
+
+    <section id="cornerAzul" class="corner-score corner-blue justify-self-end">
+      <div class="text-right">
+        <p class="corner-name text-blue-300">Esquina azul</p>
+        <div id="screenVidasAzul" class="corner-life-masks mt-1 justify-end"></div>
+      </div>
+    </section>
+  </header>
+
+  <main class="screen-main relative z-10 mx-auto flex max-w-7xl items-center justify-center px-4 pb-8 md:px-8">
+    <section id="phaseCartel" class="phase-panel hidden w-full text-center">
+      <p id="cartelKicker" class="mb-4 text-sm font-black uppercase tracking-[.4em] text-amber-300">SNEF 2026 presenta</p>
+      <div class="marquee-card mx-auto max-w-5xl">
+        <div class="marquee-lights" aria-hidden="true"></div>
+        <p id="cartelNumber" class="font-lucha text-2xl tracking-widest text-amber-200 md:text-4xl">CAÍDA 1</p>
+        <h1 id="cartelTitle" class="font-lucha mt-3 text-5xl leading-none tracking-wide text-white md:text-8xl">¡PRIMERA CAÍDA!</h1>
+        <p id="cartelSubtitle" class="mt-5 text-xl font-extrabold text-amber-200 md:text-3xl">Conocimiento y Diagnóstico</p>
+      </div>
+    </section>
+
+    <section id="phasePregunta" class="phase-panel hidden w-full">
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div class="rounded-2xl border border-amber-300/20 bg-slate-950/70 px-5 py-3 text-sm font-black uppercase tracking-[.2em] text-amber-200 md:text-lg">Pregunta de la caída</div>
+        <span id="questionCounter" class="rounded-xl border border-amber-300/30 bg-slate-950/70 px-4 py-2 font-mono font-black text-amber-200">1 / 6</span>
+      </div>
+
+      <article class="question-card">
+        <p id="questionTheme" class="mb-3 text-xs font-black uppercase tracking-[.25em] text-amber-300 md:text-sm">Conocimiento y Diagnóstico</p>
+        <h1 id="screenQuestion" class="text-center text-2xl font-black leading-tight md:text-4xl lg:text-5xl">Cargando pregunta…</h1>
+      </article>
+
+      <div id="screenOptions" class="mt-5 grid gap-3 md:gap-5"></div>
+
+      <div id="screenReflection" class="reflection-reveal mt-5 hidden">
+        <p class="mb-1 text-xs font-black uppercase tracking-[.22em] text-emerald-300">Microenseñanza · La llave para tu futuro</p>
+        <p id="screenReflectionText" class="text-base font-bold leading-relaxed text-emerald-50 md:text-xl"></p>
+      </div>
+
+    </section>
+
+    <section id="phaseMascara" class="phase-panel hidden w-full text-center">
+      <div class="finale-card mx-auto max-w-5xl">
+        <p class="font-lucha text-3xl tracking-widest text-fuchsia-300 md:text-5xl">MÁSCARA VS MÁSCARA</p>
+        <div class="my-5 text-7xl md:text-9xl">🎭</div>
+        <h1 id="maskLoser" class="font-lucha text-5xl leading-none text-white md:text-8xl">LA ESQUINA AZUL ENTREGA LA MÁSCARA</h1>
+        <p class="mx-auto mt-7 max-w-4xl text-xl font-extrabold leading-relaxed text-amber-200 md:text-3xl">“¿Qué vas a hacer hoy para estar mejor preparado para decidir sobre tu retiro?”</p>
+        <p id="maskWinner" class="mt-7 text-base font-black uppercase tracking-[.25em] text-emerald-300 md:text-xl">Esquina roja · Campeona del combate</p>
+      </div>
+    </section>
+
+    <section id="phasePodio" class="phase-panel hidden w-full text-center">
+      <div class="podium-card mx-auto max-w-5xl">
+        <div class="text-7xl md:text-9xl">🏆</div>
+        <p class="mt-3 text-sm font-black uppercase tracking-[.4em] text-amber-300">Lucha Libre · SNEF 2026</p>
+        <h1 id="podiumWinner" class="font-lucha mt-4 text-6xl leading-none text-white md:text-9xl">¡ESQUINA ROJA CAMPEONA!</h1>
+        <div class="mx-auto mt-7 max-w-3xl rounded-3xl border-2 border-amber-300 bg-amber-300/10 p-5 text-xl font-black text-amber-100 md:text-3xl">🎟️ Entrega de fichas para la ruleta de premios</div>
+        <p class="mt-6 text-lg font-bold text-slate-300 md:text-2xl">Hoy + lo que viene = Plenitud</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="questions.js"></script>
+  <script src="app.js?v=20260902-1"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let primeraActualizacion = true;
+    let ultimaFirmaAudio = '';
+    let ultimaSecuenciaImpacto = null;
+
+    function showOnly(id) {
+      ['phaseCartel', 'phasePregunta', 'phaseMascara', 'phasePodio'].forEach((phaseId) => $(phaseId).classList.toggle('hidden', phaseId !== id));
+    }
+
+    function renderVidas(targetId, vidasRestantes, color) {
+      renderMascarasLucha(targetId, vidasRestantes, META_ACIERTOS, color, {
+        numeradas: true,
+        etiqueta: `${vidasRestantes} de ${META_ACIERTOS} vidas restantes`
+      });
+    }
+
+    function reproducirCambio(state) {
+      const firma = [state.efectoSonido, state.caidasGanadas.roja, state.caidasGanadas.azul, state.fase, state.preguntaIndex, state.puntoPregunta].join('|');
+      if (!primeraActualizacion && state.efectoSonido && firma !== ultimaFirmaAudio) {
+        triviaApp.reproducirEfecto(state.efectoSonido);
+      }
+      ultimaFirmaAudio = firma;
+      primeraActualizacion = false;
+    }
+
+    function renderScreen(state) {
+      const bloqueCaida = BANCO_PREGUNTAS[state.caidaActual];
+      const { bloque, pregunta, totalPreguntasCaida } = obtenerPreguntaActual(state);
+      const revelada = state.fase === 'REVELACION';
+
+      if (ultimaSecuenciaImpacto === null) ultimaSecuenciaImpacto = state.secuenciaImpacto;
+      else {
+        if (state.secuenciaImpacto > ultimaSecuenciaImpacto && state.tipoImpacto) {
+          showImpactBanner(state.tipoImpacto, 'screenImpactBanner');
+        }
+        ultimaSecuenciaImpacto = state.secuenciaImpacto;
+      }
+
+      $('globalScore').textContent = `${state.caidasGanadas.roja} – ${state.caidasGanadas.azul}`;
+      $('caidaBadge').textContent = `Caída ${state.caidaActual}`;
+      renderVidas('screenVidasRoja', META_ACIERTOS - state.puntosRonda.azul, 'red');
+      renderVidas('screenVidasAzul', META_ACIERTOS - state.puntosRonda.roja, 'blue');
+
+      if (['INTRO', 'CARTEL_CAIDA'].includes(state.fase)) {
+        showOnly('phaseCartel');
+        $('cartelKicker').textContent = state.fase === 'INTRO' ? 'SNEF 2026 presenta' : 'La campana anuncia';
+        $('cartelNumber').textContent = `CAÍDA ${state.caidaActual}`;
+        $('cartelTitle').textContent = bloqueCaida.nombre;
+        $('cartelSubtitle').textContent = bloqueCaida.subtitulo;
+      } else if (['PREGUNTA', 'REVELACION'].includes(state.fase)) {
+        showOnly('phasePregunta');
+        $('phasePregunta').classList.toggle('compact-question', pregunta.pregunta.length > 120);
+        $('questionCounter').textContent = `${state.preguntaIndex + 1} / ${totalPreguntasCaida}`;
+        $('questionTheme').textContent = bloque.subtitulo;
+        $('screenQuestion').textContent = pregunta.pregunta;
+        $('screenOptions').classList.toggle('has-four-options', pregunta.opciones.length === 4);
+        $('screenOptions').innerHTML = pregunta.opciones.map((opcion, index) => {
+          const correcta = revelada && index === pregunta.correcta;
+          const incorrecta = state.opcionesIncorrectas.includes(index);
+          return `<div class="screen-option${correcta ? ' is-correct' : ''}${incorrecta ? ' is-incorrect' : ''}"><span>${String.fromCharCode(65 + index)}</span><p>${opcion}</p>${correcta ? '<b>✓</b>' : ''}</div>`;
+        }).join('');
+        $('screenReflectionText').textContent = pregunta.reflexion;
+        $('screenReflection').classList.toggle('hidden', !revelada);
+      } else if (state.fase === 'MASCARA_VS_MASCARA') {
+        showOnly('phaseMascara');
+        const perdedora = state.ganadorCombate === 'ROJA' ? 'AZUL' : 'ROJA';
+        $('maskLoser').textContent = `LA ESQUINA ${perdedora} ENTREGA LA MÁSCARA`;
+        $('maskWinner').textContent = `Esquina ${state.ganadorCombate || '—'} · Campeona del combate`;
+      } else if (state.fase === 'PODIO') {
+        showOnly('phasePodio');
+        $('podiumWinner').textContent = `¡ESQUINA ${state.ganadorCombate || '—'} CAMPEONA!`;
+      }
+
+      reproducirCambio(state);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      document.body.addEventListener('pointerdown', () => triviaApp.initAudio(), { once: true });
+      triviaApp.subscribe(renderScreen);
+    });
+  </script>
+</body>
+</html>
