@@ -7,11 +7,25 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <link rel="stylesheet" href="styles.css?v=20260902-1">
+  <link rel="stylesheet" href="styles.css?v=20260907-11">
 </head>
-<body id="screenBody" class="arena-shell min-h-screen overflow-x-hidden text-white select-none">
-  <audio id="boxingBellAudio" src="Sonidocampanadebox.mp3" preload="auto"></audio>
+<body id="screenBody" class="arena-shell presentacion-activa min-h-screen overflow-x-hidden text-white select-none">
+  <audio id="boxingBellAudio" src="Sonidos/Sonidocampanadebox.mp3" preload="auto"></audio>
+  <audio id="correctAnswerAudio" src="Sonidos/Gritos.mp3" preload="auto"></audio>
+  <audio id="incorrectAnswerAudio" src="Sonidos/abucheo-tm.mp3" preload="auto"></audio>
+  <section id="phasePresentacion" class="standby-screen" aria-label="Presentación: Campeón de tu futuro">
+    <img src="assets/presentacion-campeon.png" alt="Puerquito luchador con máscara verde y lentes. Campeón de tu futuro. SNEF 2026. ¡En breve comenzamos! Prepárate para entrar al ring." fetchpriority="high">
+  </section>
+  <div id="screenTurnPopup" class="turn-popup" role="status" aria-live="polite" hidden><div class="turn-popup-card"><p class="turn-popup-kicker">¡Es turno de la</p><p class="turn-popup-corner">Esquina</p><p id="screenTurnPopupText" class="turn-popup-team"></p></div></div>
   <div id="screenImpactBanner" class="impact-banner banner-incorrect" role="status" aria-live="assertive">❌ ¡RESPUESTA INCORRECTA!</div>
+  <div id="screenMicroteachingModal" class="microteaching-overlay" role="dialog" aria-modal="true" aria-labelledby="screenAnswerTitle" aria-describedby="screenCorrectAnswer screenMicroteachingTitle screenMicroteachingText" tabindex="-1" hidden>
+    <section class="microteaching-dialog">
+      <p id="screenAnswerTitle" class="microteaching-answer-label">RESPUESTA CORRECTA</p>
+      <p id="screenCorrectAnswer" class="microteaching-answer"></p>
+      <p id="screenMicroteachingTitle" class="microteaching-badge">MICROENSEÑANZA: LA LLAVE PARA TU FUTURO</p>
+      <p id="screenMicroteachingText" class="microteaching-text"></p>
+    </section>
+  </div>
 
   <header class="relative z-20 mx-auto grid max-w-7xl grid-cols-[1fr_auto_1fr] items-center gap-3 px-3 py-4 md:gap-8 md:px-8">
     <section id="cornerRoja" class="corner-score corner-red">
@@ -24,7 +38,8 @@
     <div class="text-center">
       <p class="hidden text-[10px] font-black uppercase tracking-[.32em] text-amber-300 sm:block">SNEF 2026</p>
       <div id="globalScore" class="font-lucha text-4xl tracking-widest text-amber-300 md:text-6xl">0 – 0</div>
-      <span id="caidaBadge" class="rounded-full bg-amber-400 px-3 py-1 text-[10px] font-black uppercase text-slate-950 md:text-xs">Caída 1</span>
+      <span id="caidaBadge" class="rounded-full bg-amber-400 px-3 py-1 text-[10px] font-black uppercase text-slate-950 md:text-xs">Primera caída</span>
+      <p id="screenTurn" class="turn-status" role="status">Esperando equipo</p>
     </div>
 
     <section id="cornerAzul" class="corner-score corner-blue justify-self-end">
@@ -40,15 +55,15 @@
       <p id="cartelKicker" class="mb-4 text-sm font-black uppercase tracking-[.4em] text-amber-300">SNEF 2026 presenta</p>
       <div class="marquee-card mx-auto max-w-5xl">
         <div class="marquee-lights" aria-hidden="true"></div>
-        <p id="cartelNumber" class="font-lucha text-2xl tracking-widest text-amber-200 md:text-4xl">CAÍDA 1</p>
-        <h1 id="cartelTitle" class="font-lucha mt-3 text-5xl leading-none tracking-wide text-white md:text-8xl">¡PRIMERA CAÍDA!</h1>
+        <p id="cartelNumber" class="font-lucha text-2xl tracking-widest text-amber-200 md:text-4xl">PRIMERA CAÍDA</p>
+        <h1 id="cartelTitle" class="font-lucha mt-3 text-5xl leading-none tracking-wide text-white md:text-8xl">¿QUÉ TANTO LE SABES?</h1>
         <p id="cartelSubtitle" class="mt-5 text-xl font-extrabold text-amber-200 md:text-3xl">Conocimiento y Diagnóstico</p>
       </div>
     </section>
 
     <section id="phasePregunta" class="phase-panel hidden w-full">
       <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div class="rounded-2xl border border-amber-300/20 bg-slate-950/70 px-5 py-3 text-sm font-black uppercase tracking-[.2em] text-amber-200 md:text-lg">Pregunta de la caída</div>
+        <div class="rounded-2xl border border-amber-300/20 bg-slate-950/70 px-5 py-3 text-sm font-black uppercase tracking-[.2em] text-amber-200 md:text-lg">Pregunta en juego</div>
         <span id="questionCounter" class="rounded-xl border border-amber-300/30 bg-slate-950/70 px-4 py-2 font-mono font-black text-amber-200">1 / 6</span>
       </div>
 
@@ -59,17 +74,12 @@
 
       <div id="screenOptions" class="mt-5 grid gap-3 md:gap-5"></div>
 
-      <div id="screenReflection" class="reflection-reveal mt-5 hidden">
-        <p class="mb-1 text-xs font-black uppercase tracking-[.22em] text-emerald-300">Microenseñanza · La llave para tu futuro</p>
-        <p id="screenReflectionText" class="text-base font-bold leading-relaxed text-emerald-50 md:text-xl"></p>
-      </div>
-
     </section>
 
     <section id="phaseMascara" class="phase-panel hidden w-full text-center">
       <div class="finale-card mx-auto max-w-5xl">
         <p class="font-lucha text-3xl tracking-widest text-fuchsia-300 md:text-5xl">MÁSCARA VS MÁSCARA</p>
-        <div class="my-5 text-7xl md:text-9xl">🎭</div>
+        <div id="finaleMasks" class="finale-masks" role="img" aria-label="Máscara roja y dorada contra máscara azul de lucha libre mexicana"></div>
         <h1 id="maskLoser" class="font-lucha text-5xl leading-none text-white md:text-8xl">LA ESQUINA AZUL ENTREGA LA MÁSCARA</h1>
         <p class="mx-auto mt-7 max-w-4xl text-xl font-extrabold leading-relaxed text-amber-200 md:text-3xl">“¿Qué vas a hacer hoy para estar mejor preparado para decidir sobre tu retiro?”</p>
         <p id="maskWinner" class="mt-7 text-base font-black uppercase tracking-[.25em] text-emerald-300 md:text-xl">Esquina roja · Campeona del combate</p>
@@ -87,22 +97,45 @@
     </section>
   </main>
 
-  <script src="questions.js"></script>
-  <script src="app.js?v=20260902-2"></script>
+  <div id="screenFallBanner" class="fall-banner" role="status" hidden></div>
+  <script src="questions.js?v=20260907-1"></script>
+  <script src="app.js?v=20260908-2"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     let primeraActualizacion = true;
     let ultimaFirmaAudio = '';
     let ultimaSecuenciaImpacto = null;
+    let impactoEnCurso = null;
+    let estadoPantalla;
+    let actualizarMicroensenanza;
+    let ultimaFirmaTurno = '';
+    let turnoPopupTimeout;
+    function renderTurno(state) {
+      const activo = !state.puntoPregunta && !state.ganadorCombate && !ganadorPorVidas(state) && ['INTRO', 'CARTEL_CAIDA', 'PREGUNTA'].includes(state.fase);
+      const equipo = activo ? state.turnoActual : null;
+      const texto = equipo ? '¡Turno de la ' + nombreEsquina(equipo).toLowerCase() + '!' : activo ? 'Esperando equipo' : 'Pregunta cerrada';
+      $('screenTurn').textContent = texto;
+      $('screenTurn').dataset.team = equipo || '';
+      for (const color of ['Roja', 'Azul']) $('corner' + color).classList.toggle('has-turn', equipo === color.toUpperCase());
+      const firma = [state.partidaId, state.caidaActual, state.preguntaIndex, equipo].join('|');
+      if (firma !== ultimaFirmaTurno) {
+        clearTimeout(turnoPopupTimeout);
+        $('screenTurnPopup').hidden = !equipo;
+        $('screenTurnPopupText').textContent = equipo === 'ROJA' ? 'ROJA!' : equipo === 'AZUL' ? 'AZUL!' : '';
+        $('screenTurnPopup').dataset.team = equipo || '';
+        if (equipo) turnoPopupTimeout = setTimeout(() => { $('screenTurnPopup').hidden = true; }, 2500);
+        ultimaFirmaTurno = firma;
+      }
+    }
 
     function showOnly(id) {
-      ['phaseCartel', 'phasePregunta', 'phaseMascara', 'phasePodio'].forEach((phaseId) => $(phaseId).classList.toggle('hidden', phaseId !== id));
+      ['phasePresentacion', 'phaseCartel', 'phasePregunta', 'phaseMascara', 'phasePodio'].forEach((phaseId) => $(phaseId).classList.toggle('hidden', phaseId !== id));
     }
 
     function renderVidas(targetId, vidasRestantes, color) {
-      renderMascarasLucha(targetId, vidasRestantes, META_ACIERTOS, color, {
+      renderMascarasLucha(targetId, vidasRestantes, MAX_VIDAS, color, {
         numeradas: true,
-        etiqueta: `${vidasRestantes} de ${META_ACIERTOS} vidas restantes`
+        etiqueta: `${vidasRestantes} de ${MAX_VIDAS} vidas restantes`
       });
     }
 
@@ -116,27 +149,57 @@
     }
 
     function renderScreen(state) {
+      estadoPantalla = state;
+      const firmaImpacto = [state.partidaId, state.caidaActual, state.preguntaIndex, state.secuenciaImpacto, state.fase].join('|');
+      if (impactoEnCurso && (impactoEnCurso !== firmaImpacto || !state.mostrarSolucion || !state.tipoImpacto)) {
+        hideImpactBanner('screenImpactBanner');
+        impactoEnCurso = null;
+      }
+      const presentacion = state.fase === 'PRESENTACION';
+      document.body.classList.toggle('presentacion-activa', presentacion);
+      if (presentacion) {
+        showOnly('phasePresentacion');
+        hideImpactBanner('screenImpactBanner');
+        clearTimeout(turnoPopupTimeout);
+        $('screenTurnPopup').hidden = true;
+        $('screenFallBanner').hidden = true;
+        ultimaFirmaTurno = '';
+        ultimaSecuenciaImpacto = state.secuenciaImpacto;
+        actualizarMicroensenanza(state, obtenerPreguntaActual(state).pregunta);
+        reproducirCambio(state);
+        return;
+      }
+      renderTurno(state);
       const bloqueCaida = BANCO_PREGUNTAS[state.caidaActual];
       const { bloque, pregunta, totalPreguntasCaida } = obtenerPreguntaActual(state);
-      const revelada = state.fase === 'REVELACION';
+      const revelada = state.mostrarSolucion === true;
+      const ganadorCaida = ganadorPorVidas(state);
+      $('screenFallBanner').hidden = !ganadorCaida || revelada;
+      $('screenFallBanner').textContent = ganadorCaida ? `¡${bloque.etiqueta} para la Esquina ${ganadorCaida === 'ROJA' ? 'Roja' : 'Azul'}!` : '';
 
       if (ultimaSecuenciaImpacto === null) ultimaSecuenciaImpacto = state.secuenciaImpacto;
       else {
         if (state.secuenciaImpacto > ultimaSecuenciaImpacto && state.tipoImpacto) {
-          showImpactBanner(state.tipoImpacto, 'screenImpactBanner');
+          impactoEnCurso = firmaImpacto;
+          showImpactBanner(state.tipoImpacto, 'screenImpactBanner', () => {
+            if (impactoEnCurso !== firmaImpacto) return;
+            impactoEnCurso = null;
+            renderScreen(estadoPantalla);
+          });
+          if (state.tipoImpacto === 'incorrect') triviaApp.reproducirEfecto('ABUCHEO');
         }
         ultimaSecuenciaImpacto = state.secuenciaImpacto;
       }
 
       $('globalScore').textContent = `${state.caidasGanadas.roja} – ${state.caidasGanadas.azul}`;
-      $('caidaBadge').textContent = `Caída ${state.caidaActual}`;
-      renderVidas('screenVidasRoja', META_ACIERTOS - state.puntosRonda.azul, 'red');
-      renderVidas('screenVidasAzul', META_ACIERTOS - state.puntosRonda.roja, 'blue');
+      $('caidaBadge').textContent = bloque.etiqueta;
+      renderVidas('screenVidasRoja', state.marcador.esquinaRoja.vidas, 'red');
+      renderVidas('screenVidasAzul', state.marcador.esquinaAzul.vidas, 'blue');
 
       if (['INTRO', 'CARTEL_CAIDA'].includes(state.fase)) {
         showOnly('phaseCartel');
         $('cartelKicker').textContent = state.fase === 'INTRO' ? 'SNEF 2026 presenta' : 'La campana anuncia';
-        $('cartelNumber').textContent = `CAÍDA ${state.caidaActual}`;
+        $('cartelNumber').textContent = bloqueCaida.etiqueta.toUpperCase();
         $('cartelTitle').textContent = bloqueCaida.nombre;
         $('cartelSubtitle').textContent = bloqueCaida.subtitulo;
       } else if (['PREGUNTA', 'REVELACION'].includes(state.fase)) {
@@ -151,8 +214,6 @@
           const incorrecta = state.opcionesIncorrectas.includes(index);
           return `<div class="screen-option${correcta ? ' is-correct' : ''}${incorrecta ? ' is-incorrect' : ''}"><span>${String.fromCharCode(65 + index)}</span><p>${opcion}</p>${correcta ? '<b>✓</b>' : ''}</div>`;
         }).join('');
-        $('screenReflectionText').textContent = pregunta.reflexion;
-        $('screenReflection').classList.toggle('hidden', !revelada);
       } else if (state.fase === 'MASCARA_VS_MASCARA') {
         showOnly('phaseMascara');
         const perdedora = state.ganadorCombate === 'ROJA' ? 'AZUL' : 'ROJA';
@@ -163,11 +224,19 @@
         $('podiumWinner').textContent = `¡ESQUINA ${state.ganadorCombate || '—'} CAMPEONA!`;
       }
 
+      // La enseñanza aparece cuando el aviso termina de desvanecerse.
+      actualizarMicroensenanza({ ...state, mostrarSolucion: state.mostrarSolucion && !impactoEnCurso }, pregunta);
+      if (!state.tipoImpacto || (!state.mostrarSolucion && state.tipoImpacto === 'correct')) hideImpactBanner('screenImpactBanner');
       reproducirCambio(state);
     }
 
     window.addEventListener('DOMContentLoaded', () => {
+      triviaApp.initAudio();
+      $('finaleMasks').innerHTML = crearMascaraLuchador('red', true)
+        + crearMascaraLuchador('blue', true)
+        + '<span class="finale-masks-vs" aria-hidden="true">VS</span>';
       document.body.addEventListener('pointerdown', () => triviaApp.initAudio(), { once: true });
+      actualizarMicroensenanza = inicializarModalMicroensenanza('screen');
       triviaApp.subscribe(renderScreen);
     });
   </script>

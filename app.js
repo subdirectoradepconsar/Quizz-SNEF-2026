@@ -1,3 +1,44 @@
+// El historial persistente contiene una entrada por pregunta, con todos sus intentos.
+function nombreEsquina(esquina) {
+  return esquina === 'ROJA' ? 'Esquina Roja' : esquina === 'AZUL' ? 'Esquina Azul' : 'Nadie';
+}
+function otraEsquina(esquina) { return esquina === 'ROJA' ? 'AZUL' : esquina === 'AZUL' ? 'ROJA' : null; }
+function claveRegistro(state) { return 'p' + ((state.caidaActual - 1) * 6 + state.preguntaIndex); }
+function construirHistorialSheets(state) {
+  return Array.from({ length: 18 }, (_, i) => {
+    const registro = state.historialPreguntas['p' + i];
+    if (!registro) return null;
+    return {
+      equipoTurno: registro.intentos.map(item => nombreEsquina(item.equipo)).join(' → '),
+      pregunta: registro.pregunta,
+      respuestaElegida: registro.intentos.map((item, index) =>
+        (index + 1) + '. ' + nombreEsquina(item.equipo) + ': ' +
+        (item.opcion >= 0 ? String.fromCharCode(65 + item.opcion) + ' · ' : '') + item.respuesta +
+        (item.correcta ? ' ✅' : ' ❌')
+      ).join(' / '),
+      puntoPara: nombreEsquina(registro.puntoPara)
+    };
+  });
+}
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxgIUeddDRPQy4yLL9Ndv-cEdF5jlf_m4MZh3w8oDJxcN9pCvfLob_fkDWPM5dY02yb/exec';
+function enviarPartidaAGoogleSheets(state) {
+  const numPartida = (parseInt(localStorage.getItem('trivia_num_partida') || '0', 10) || 0) + 1;
+  localStorage.setItem('trivia_num_partida', numPartida);
+  const payload = {
+    numeroPartida: numPartida,
+    ganador: nombreEsquina(state.ganadorCombate),
+    marcadorFinal: state.caidasGanadas.roja + ' - ' + state.caidasGanadas.azul,
+    historial: construirHistorialSheets(state)
+  };
+  return fetch(APPS_SCRIPT_URL, {
+    method: 'POST', mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload)
+  }).then(() => {
+    console.warn('Petición enviada; la respuesta opaca no confirma el guardado en Sheets. El historial se conserva en Firebase.');
+  }).catch(error => console.error('Error al registrar en Google Sheets:', error));
+}
+
 // Credenciales oficiales. Se conservan sin cambios.
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyDkKAiVlq_th7eXqb_5F6f25uFO4ZliYIk",
@@ -15,10 +56,36 @@ const DB_STATE_PATH = `${DB_NAMESPACE}estado_trivia`;
 const CAIDAS = [1, 2, 3];
 const MAX_PREGUNTAS_POR_CAIDA = 6;
 const META_ACIERTOS = 3;
-const CARTEL_CAIDA_DURACION_MS = 7000;
+const MAX_VIDAS = 3;
+const crearMarcador = () => ({
+  esquinaRoja: { vidas: MAX_VIDAS, aciertos: 0 },
+  esquinaAzul: { vidas: MAX_VIDAS, aciertos: 0 }
+});
+
+function ganadorPorVidas(state) {
+  if (state.preguntaIndex !== obtenerTotalPreguntasCaida(state.caidaActual) - 1 || !state.puntoPregunta) return null;
+  if (state.marcador.esquinaRoja.vidas > state.marcador.esquinaAzul.vidas) return 'ROJA';
+  if (state.marcador.esquinaAzul.vidas > state.marcador.esquinaRoja.vidas) return 'AZUL';
+  return null;
+}
+
+// Adaptador onValue para el SDK compat que ya utiliza el proyecto.
+function onValue(reference, callback, onError) {
+  reference.on('value', callback, onError);
+  return () => reference.off('value', callback);
+}
 const impactBannerTimeouts = new Map();
 
-function showImpactBanner(type, targetId) {
+function hideImpactBanner(targetId) {
+  const banner = document.getElementById(targetId);
+  if (!banner) return;
+  clearTimeout(impactBannerTimeouts.get(targetId));
+  impactBannerTimeouts.delete(targetId);
+  banner.classList.remove('is-active', 'is-fading');
+}
+
+function showImpactBanner(type, targetId, alTerminar) {
+  if (document.body.classList.contains('moderator-shell')) return;
   const banner = document.getElementById(targetId);
   const variantes = {
     correct: { clase: 'banner-correct', texto: '✅ ¡RESPUESTA CORRECTA!' },
@@ -37,10 +104,12 @@ function showImpactBanner(type, targetId) {
   const timeout = setTimeout(() => {
     banner.classList.remove('is-active');
     banner.classList.add('is-fading');
-    setTimeout(() => {
+    const desvanecimiento = setTimeout(() => {
       banner.classList.remove('is-fading');
       impactBannerTimeouts.delete(targetId);
+      if (alTerminar) alTerminar();
     }, 260);
+    impactBannerTimeouts.set(targetId, desvanecimiento);
   }, 1300);
   impactBannerTimeouts.set(targetId, timeout);
 }
@@ -78,6 +147,43 @@ function renderMascarasLucha(targetId, cantidadActiva, total, color, opciones = 
   contenedor.innerHTML = Array.from({ length: totalSeguro }, (_, indice) => (
     crearMascaraLuchador(color, indice < activas, numeradas ? indice + 1 : null)
   )).join('');
+}
+
+function inicializarModalMicroensenanza(prefijo) {
+  // Los avisos emergentes pertenecen exclusivamente a la pantalla del auditorio.
+  if (!document.documentElement.classList.contains('screen-page')) return () => {};
+  const modal = document.getElementById(`${prefijo}MicroteachingModal`);
+  const texto = document.getElementById(`${prefijo}MicroteachingText`);
+  const respuesta = document.getElementById(`${prefijo}CorrectAnswer`);
+  const fondo = [...document.querySelectorAll('body > header, body > main')];
+  let focoAnterior = null;
+
+  modal.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' || event.key === 'Tab') {
+      event.preventDefault();
+    }
+  });
+
+  return (state, pregunta) => {
+    const visible = state.mostrarSolucion === true;
+    const estabaOculto = modal.hidden;
+    respuesta.textContent = `${String.fromCharCode(65 + pregunta.correcta)}. ${pregunta.opciones[pregunta.correcta]}`;
+    texto.textContent = pregunta.reflexion;
+    if (visible && estabaOculto) focoAnterior = document.activeElement;
+    modal.hidden = !visible;
+    fondo.forEach((elemento) => { elemento.inert = visible; });
+    document.body.classList.toggle('modal-open', visible);
+    if (visible && (estabaOculto || document.activeElement === modal || document.activeElement.closest('[hidden]'))) {
+      modal.focus({ preventScroll: true });
+    } else if (!visible && !estabaOculto) {
+      if (focoAnterior?.isConnected && !focoAnterior.disabled) focoAnterior.focus({ preventScroll: true });
+      else {
+        const principal = document.querySelector('main');
+        principal.tabIndex = -1;
+        principal.focus({ preventScroll: true });
+      }
+    }
+  };
 }
 
 function obtenerRangosBanco(bancoPreguntas = BANCO_PREGUNTAS) {
@@ -141,12 +247,21 @@ function obtenerPosicionInicialCaida(caida, bancoPreguntas = BANCO_PREGUNTAS) {
 }
 
 const estadoInicial = {
+  revision: 0,
+  partidaId: null,
+  turnoActual: null,
+  inicioTurnoPregunta: null,
+  equipoInicialCaida: null,
+  avanceAutomaticoEn: null,
+  historialPreguntas: {},
+  ultimoIntento: null,
   caidaActual: 1,
   preguntaIndex: 0,
   ordenPreguntas: [...ORDEN_PREDETERMINADO],
-  fase: 'CARTEL_CAIDA',
+  fase: 'PRESENTACION',
   caidasGanadas: { roja: 0, azul: 0 },
   puntosRonda: { roja: 0, azul: 0 },
+  marcador: crearMarcador(),
   ganadorCombate: null,
   efectoSonido: null,
   // Campos internos para sincronizar la evaluación y señalar empates al panel.
@@ -155,10 +270,12 @@ const estadoInicial = {
   tipoImpacto: null,
   secuenciaImpacto: 0,
   requiereDesempate: false,
-  inicioCartelCaida: Date.now()
+  ganadorDesempate: null,
+  mostrarSolucion: false,
+  inicioCartelCaida: null
 };
 
-const FASES = ['INTRO', 'CARTEL_CAIDA', 'PREGUNTA', 'REVELACION', 'MASCARA_VS_MASCARA', 'PODIO'];
+const FASES = ['PRESENTACION', 'INTRO', 'CARTEL_CAIDA', 'PREGUNTA', 'REVELACION', 'MASCARA_VS_MASCARA', 'PODIO'];
 const ESQUINAS = ['ROJA', 'AZUL'];
 const RESULTADOS_PREGUNTA = [...ESQUINAS, 'NINGUNO'];
 const TIPOS_IMPACTO = ['correct', 'incorrect'];
@@ -177,17 +294,47 @@ function normalizarOpcionesIncorrectas(valor) {
   return [...new Set(valor.map(Number).filter((indice) => Number.isInteger(indice) && indice >= 0 && indice <= 3))];
 }
 
+function normalizarHistorial(valor) {
+  const historial = {};
+  for (let i = 0; i < 18; i++) {
+    const item = valor?.['p' + i];
+    if (!item || typeof item.pregunta !== 'string') continue;
+    historial['p' + i] = {
+      pregunta: item.pregunta,
+      intentos: (Array.isArray(item.intentos) ? item.intentos : []).filter(intento =>
+        intento && ESQUINAS.includes(intento.equipo) && Number.isInteger(intento.opcion) &&
+        intento.opcion >= -1 && intento.opcion <= 3 && typeof intento.respuesta === 'string'
+      ).map(intento => ({ equipo: intento.equipo, opcion: intento.opcion, respuesta: intento.respuesta, correcta: intento.correcta === true })),
+      puntoPara: ESQUINAS.includes(item.puntoPara) ? item.puntoPara : null
+    };
+  }
+  return historial;
+}
+
 function normalizarEstado(valor) {
   const origen = valor && typeof valor === 'object' ? valor : {};
   const caidaActual = enteroAcotado(origen.caidaActual, 1, 3, 1);
-  const fase = FASES.includes(origen.fase) ? origen.fase : 'CARTEL_CAIDA';
+  const fase = FASES.includes(origen.fase) ? origen.fase : 'PRESENTACION';
   const ganador = ESQUINAS.includes(origen.ganadorCombate) ? origen.ganadorCombate : null;
   const puntoPregunta = RESULTADOS_PREGUNTA.includes(origen.puntoPregunta) ? origen.puntoPregunta : null;
   const tipoImpacto = TIPOS_IMPACTO.includes(origen.tipoImpacto)
     ? origen.tipoImpacto
     : (enteroAcotado(origen.secuenciaError, 0, Number.MAX_SAFE_INTEGER, 0) > 0 ? 'incorrect' : null);
+  // `microensenanzaVisible` se acepta solo para migrar estados guardados antes
+  // de que `mostrarSolucion` se convirtiera en la señal visual canónica.
+  const mostrarSolucion = typeof origen.mostrarSolucion === 'boolean'
+    ? origen.mostrarSolucion
+    : Boolean(origen.microensenanzaVisible);
 
   return {
+    revision: enteroAcotado(origen.revision, 0, Number.MAX_SAFE_INTEGER, 0),
+    partidaId: typeof origen.partidaId === 'string' ? origen.partidaId : null,
+    turnoActual: ESQUINAS.includes(origen.turnoActual) ? origen.turnoActual : null,
+    inicioTurnoPregunta: ESQUINAS.includes(origen.inicioTurnoPregunta) ? origen.inicioTurnoPregunta : null,
+    equipoInicialCaida: ESQUINAS.includes(origen.equipoInicialCaida) ? origen.equipoInicialCaida : null,
+    historialPreguntas: normalizarHistorial(origen.historialPreguntas),
+    ultimoIntento: origen.ultimoIntento && typeof origen.ultimoIntento === 'object' ? clonar(origen.ultimoIntento) : null,
+    avanceAutomaticoEn: null,
     caidaActual,
     preguntaIndex: enteroAcotado(origen.preguntaIndex, 0, obtenerTotalPreguntasCaida(caidaActual) - 1, 0),
     ordenPreguntas: normalizarOrdenPreguntas(origen.ordenPreguntas),
@@ -200,6 +347,13 @@ function normalizarEstado(valor) {
       roja: enteroAcotado(origen.puntosRonda?.roja, 0, META_ACIERTOS, 0),
       azul: enteroAcotado(origen.puntosRonda?.azul, 0, META_ACIERTOS, 0)
     },
+    // Los estados antiguos comienzan con tres vidas: los aciertos no son castigos.
+    marcador: Object.fromEntries(['Roja', 'Azul'].map((color) => [
+      `esquina${color}`, {
+        vidas: enteroAcotado(origen.marcador?.[`esquina${color}`]?.vidas ?? MAX_VIDAS, 0, MAX_VIDAS, MAX_VIDAS),
+        aciertos: enteroAcotado(origen.marcador?.[`esquina${color}`]?.aciertos ?? origen.puntosRonda?.[color.toLowerCase()] ?? 0, 0, Number.MAX_SAFE_INTEGER, 0)
+      }
+    ])),
     ganadorCombate: ganador,
     efectoSonido: typeof origen.efectoSonido === 'string' ? origen.efectoSonido : null,
     puntoPregunta,
@@ -207,6 +361,8 @@ function normalizarEstado(valor) {
     tipoImpacto,
     secuenciaImpacto: enteroAcotado(origen.secuenciaImpacto ?? origen.secuenciaError, 0, Number.MAX_SAFE_INTEGER, 0),
     requiereDesempate: Boolean(origen.requiereDesempate),
+    ganadorDesempate: origen.requiereDesempate && ESQUINAS.includes(origen.ganadorDesempate) ? origen.ganadorDesempate : null,
+    mostrarSolucion: fase === 'REVELACION' && !ganador && mostrarSolucion,
     inicioCartelCaida: Number.isFinite(Number(origen.inicioCartelCaida)) && Number(origen.inicioCartelCaida) > 0
       ? Number(origen.inicioCartelCaida)
       : null
@@ -240,13 +396,14 @@ class TriviaApp {
     if ('BroadcastChannel' in window) {
       this.broadcast = new BroadcastChannel(this.channelName);
       this.broadcast.onmessage = ({ data }) => {
-        if (data) this.recibirEstado(data);
+        if (data) this.recibirEstado(data, false);
       };
     }
 
     window.addEventListener('storage', (event) => {
-      if (event.key === this.storageKey && event.newValue) {
-        try { this.recibirEstado(JSON.parse(event.newValue)); } catch (_) { /* respaldo inválido */ }
+      // BroadcastChannel es el canal principal; storage queda como respaldo.
+      if (!this.broadcast && event.key === this.storageKey && event.newValue) {
+        try { this.recibirEstado(JSON.parse(event.newValue), false); } catch (_) { /* respaldo inválido */ }
       }
     });
 
@@ -263,9 +420,12 @@ class TriviaApp {
       if (!window.firebase.apps.length) window.firebase.initializeApp(FIREBASE_CONFIG);
       this.firebaseDb = window.firebase.database();
       this.dbRef = this.firebaseDb.ref(DB_STATE_PATH);
-      this.dbRef.on('value', (snapshot) => {
+      // Un listener en el padre recibe también cada cambio en
+      // marcador/esquinaRoja/vidas y marcador/esquinaAzul/vidas,
+      // junto con la caída correspondiente, sin renders parciales.
+      onValue(this.dbRef, (snapshot) => {
         if (snapshot.exists()) this.recibirEstado(snapshot.val());
-        else this.publicar();
+        else if (document.body.classList.contains('moderator-shell')) this.publicar();
       });
       console.log(`Firebase conectado exclusivamente en '${DB_STATE_PATH}'.`);
     } catch (error) {
@@ -273,9 +433,12 @@ class TriviaApp {
     }
   }
 
-  recibirEstado(nuevoEstado) {
-    this.state = normalizarEstado(nuevoEstado);
-    this.guardarLocal();
+  recibirEstado(nuevoEstado, guardarRespaldo = true) {
+    const estadoNormalizado = normalizarEstado(nuevoEstado);
+    if (JSON.stringify(estadoNormalizado) === JSON.stringify(this.state)) return;
+    this.state = estadoNormalizado;
+    // Las otras pestañas ya comparten este respaldo; no volver a emitir eventos storage.
+    if (guardarRespaldo) this.guardarLocal();
     this.notificar();
   }
 
@@ -306,13 +469,65 @@ class TriviaApp {
     return Boolean(this.state.ganadorCombate);
   }
 
-  nadieAcerto() {
-    if (this.combateTerminado() || this.state.fase !== 'PREGUNTA' || this.state.puntoPregunta) return false;
-    this.state.fase = 'REVELACION';
-    this.state.puntoPregunta = 'NINGUNO';
-    this.state.efectoSonido = null;
+  async modificarVida(esquina, cambio) {
+    if (this.operacionPendiente) return false;
+    const color = String(esquina).toLowerCase();
+    if (!['roja', 'azul'].includes(color) || ![-1, 1].includes(cambio)) return false;
+    const caida = this.state.caidaActual;
+    const inicio = this.state.inicioCartelCaida;
+    const clave = color === 'roja' ? 'esquinaRoja' : 'esquinaAzul';
+    const transformar = (valor) => {
+      if (!valor) return; // Firebase puede reintentar con el estado remoto.
+      const state = normalizarEstado(valor);
+      if (state.caidaActual !== caida || state.inicioCartelCaida !== inicio || state.ganadorCombate) return;
+
+      const anterior = state.marcador[clave].vidas;
+      const vidas = Math.max(0, Math.min(MAX_VIDAS, anterior + cambio));
+      if (vidas === anterior) return;
+      state.marcador[clave].vidas = vidas;
+      state.revision += 1;
+      // El aviso de fin tiene prioridad sobre el modal de solución.
+      if (ganadorPorVidas(state)) state.mostrarSolucion = false;
+      return { ...valor, ...state };
+    };
+    if (this.dbRef) {
+      // Se comprueban ambas esquinas y el fin del combate en una transacción.
+      const resultado = await this.dbRef.transaction(transformar, undefined, false);
+      if (resultado.committed) this.recibirEstado(resultado.snapshot.val());
+      return resultado.committed;
+    }
+    const siguiente = transformar(this.state);
+    if (!siguiente) return false;
+    this.state = siguiente;
     this.publicar();
     return true;
+  }
+
+  quitarVida(esquina) { return this.modificarVida(esquina, -1); }
+  restaurarVida(esquina) { return this.modificarVida(esquina, 1); }
+
+  actualizarVisibilidadSolucion(visible) {
+    this.state.mostrarSolucion = Boolean(visible);
+  }
+
+  ocultarSolucion() {
+    if (!this.state.mostrarSolucion) return false;
+    this.state.avanceAutomaticoEn = null;
+
+    this.actualizarVisibilidadSolucion(false);
+    this.state.efectoSonido = null;
+
+    // La revelación visual vuelve a la pregunta sin modificar puntos ni vidas.
+    if (this.state.fase === 'REVELACION') this.state.fase = 'PREGUNTA';
+    // "Nadie acertó" bloquea la pregunta; al revertirlo debe poder responderse otra vez.
+    // Ocultar la explicación no reabre un intento: para corregirlo se usa Deshacer.
+
+    this.publicar();
+    return true;
+  }
+
+  nadieAcerto() {
+    return this.seleccionarOpcion(null);
   }
 
   registrarImpacto(tipo) {
@@ -321,81 +536,164 @@ class TriviaApp {
     this.state.secuenciaImpacto = this.state.secuenciaImpacto >= Number.MAX_SAFE_INTEGER ? 1 : this.state.secuenciaImpacto + 1;
   }
 
-  seleccionarOpcion(indiceOpcion) {
-    const faseInteractiva = ['INTRO', 'CARTEL_CAIDA', 'PREGUNTA'].includes(this.state.fase);
-    if (this.combateTerminado() || !faseInteractiva || this.state.puntoPregunta) return false;
-    const { pregunta } = obtenerPreguntaActual(this.state);
-    const indice = Number(indiceOpcion);
-    if (!Number.isInteger(indice) || indice < 0 || indice >= pregunta.opciones.length) return false;
-
-    if (indice === pregunta.correcta) {
-      this.state.fase = 'REVELACION';
-      this.state.efectoSonido = null;
-      this.registrarImpacto('correct');
-    } else if (!this.state.opcionesIncorrectas.includes(indice)) {
-      this.state.fase = 'PREGUNTA';
-      this.state.opcionesIncorrectas.push(indice);
-      this.state.efectoSonido = null;
-    }
-
-    if (indice !== pregunta.correcta) {
-      this.registrarImpacto('incorrect');
-    }
-
+  seleccionarTurno(esquina) {
+    const equipo = String(esquina).toUpperCase();
+    if (this.state.historialPreguntas[claveRegistro(this.state)]?.intentos.length || this.state.preguntaIndex !== 0 || !ESQUINAS.includes(equipo) || this.combateTerminado() || ganadorPorVidas(this.state) ||
+        this.state.puntoPregunta || !['INTRO', 'CARTEL_CAIDA', 'PREGUNTA'].includes(this.state.fase)) return false;
+    this.state.equipoInicialCaida = equipo;
+    this.state.turnoActual = equipo;
+    if (!this.state.historialPreguntas[claveRegistro(this.state)]?.intentos.length) this.state.inicioTurnoPregunta = equipo;
     this.publicar();
     return true;
   }
 
-  anotarAcierto(esquina) {
-    const esquinaNormalizada = String(esquina || '').toUpperCase();
-    const metaAlcanzada = Object.values(this.state.puntosRonda).some((puntos) => puntos >= META_ACIERTOS);
-    if (this.combateTerminado() || metaAlcanzada || !ESQUINAS.includes(esquinaNormalizada) || this.state.puntoPregunta) return false;
-    const respuestaYaRevelada = this.state.fase === 'REVELACION';
-    const clave = esquinaNormalizada.toLowerCase();
-    this.state.puntosRonda[clave] = Math.min(META_ACIERTOS, this.state.puntosRonda[clave] + 1);
-    this.state.puntoPregunta = esquinaNormalizada;
-    this.state.fase = 'REVELACION';
-    this.state.efectoSonido = 'ACIERTO';
-    if (!respuestaYaRevelada) this.registrarImpacto('correct');
+  registrarPregunta() {
+    const clave = claveRegistro(this.state);
+    if (!this.state.historialPreguntas[clave]) {
+      this.state.historialPreguntas[clave] = { pregunta: obtenerPreguntaActual(this.state).pregunta.pregunta, intentos: [], puntoPara: null };
+    }
+    return this.state.historialPreguntas[clave];
+  }
+
+  seleccionarOpcion(indiceOpcion) {
+    const faseInteractiva = ['INTRO', 'CARTEL_CAIDA', 'PREGUNTA'].includes(this.state.fase);
+    if (this.combateTerminado() || ganadorPorVidas(this.state) || !faseInteractiva || this.state.puntoPregunta || !this.state.turnoActual) return false;
+    const { pregunta } = obtenerPreguntaActual(this.state);
+    const indice = indiceOpcion === null ? -1 : Number(indiceOpcion);
+    if (!Number.isInteger(indice) || (indice < 0 && indiceOpcion !== null) || indice >= pregunta.opciones.length || this.state.opcionesIncorrectas.includes(indice)) return false;
+    const equipo = this.state.turnoActual;
+    this.state.avanceAutomaticoEn = null;
+    const correcta = indice === pregunta.correcta;
+    const clave = claveRegistro(this.state);
+    this.state.ultimoIntento = {
+      clave, equipo, correcta,
+      vidasDescontadas: !correcta && this.state.marcador[equipo === 'ROJA' ? 'esquinaRoja' : 'esquinaAzul'].vidas > 0 ? 1 : 0,
+      fase: this.state.fase,
+      puntosRonda: clonar(this.state.puntosRonda),
+      aciertos: this.state.marcador[equipo === 'ROJA' ? 'esquinaRoja' : 'esquinaAzul'].aciertos,
+      opcionesIncorrectas: [...this.state.opcionesIncorrectas],
+      registro: this.state.historialPreguntas[clave] ? clonar(this.state.historialPreguntas[clave]) : null
+    };
+    const registro = this.registrarPregunta();
+    registro.intentos.push({ equipo, opcion: indice, respuesta: indice === -1 ? 'Sin respuesta' : pregunta.opciones[indice], correcta });
+    if (correcta) {
+      this.state.marcador[equipo === 'ROJA' ? 'esquinaRoja' : 'esquinaAzul'].aciertos += 1;
+      const color = equipo.toLowerCase();
+      this.state.puntosRonda[color] = Math.min(META_ACIERTOS, this.state.puntosRonda[color] + 1);
+      this.state.puntoPregunta = equipo;
+      registro.puntoPara = equipo;
+      this.state.fase = 'REVELACION';
+      this.state.efectoSonido = 'ACIERTO';
+      this.actualizarVisibilidadSolucion(true);
+      this.registrarImpacto('correct');
+    } else {
+      this.state.fase = 'REVELACION';
+      if (indice >= 0) this.state.opcionesIncorrectas.push(indice);
+      this.state.efectoSonido = null;
+      this.state.puntoPregunta = 'NINGUNO';
+      const marcador = this.state.marcador[equipo === 'ROJA' ? 'esquinaRoja' : 'esquinaAzul'];
+      marcador.vidas = Math.max(0, marcador.vidas - 1);
+      this.actualizarVisibilidadSolucion(true);
+      this.registrarImpacto('incorrect');
+    }
     this.publicar();
     return true;
+  }
+
+  deshacerUltimoIntento() {
+    const anterior = this.state.ultimoIntento;
+    if (!anterior || anterior.clave !== claveRegistro(this.state) || this.combateTerminado() || this.state.requiereDesempate) return false;
+    const marcador = this.state.marcador[anterior.equipo === 'ROJA' ? 'esquinaRoja' : 'esquinaAzul'];
+    marcador.vidas = Math.min(MAX_VIDAS, marcador.vidas + (anterior.vidasDescontadas || 0));
+    this.state.avanceAutomaticoEn = null;
+    this.state.turnoActual = anterior.equipo;
+    this.state.fase = anterior.fase;
+    this.state.puntosRonda = clonar(anterior.puntosRonda);
+    this.state.marcador[anterior.equipo === 'ROJA' ? 'esquinaRoja' : 'esquinaAzul'].aciertos = anterior.aciertos;
+    this.state.opcionesIncorrectas = anterior.opcionesIncorrectas || [];
+    if (anterior.registro) this.state.historialPreguntas[anterior.clave] = anterior.registro;
+    else delete this.state.historialPreguntas[anterior.clave];
+    this.state.puntoPregunta = null;
+    this.state.mostrarSolucion = false;
+    this.state.tipoImpacto = null;
+    this.state.efectoSonido = null;
+    this.state.ultimoIntento = null;
+    this.publicar();
+    return true;
+  }
+
+  prepararSiguienteTurno() {
+    this.state.turnoActual = this.state.preguntaIndex < 3 ? this.state.equipoInicialCaida : otraEsquina(this.state.equipoInicialCaida);
+    this.state.inicioTurnoPregunta = this.state.turnoActual;
+    this.state.ultimoIntento = null;
+  }
+
+  asignarDesempate(esquina) {
+    const equipo = String(esquina).toUpperCase();
+    if (!this.state.requiereDesempate || this.combateTerminado() || ganadorPorVidas(this.state) ||
+        this.state.preguntaIndex !== obtenerTotalPreguntasCaida(this.state.caidaActual) - 1 || !ESQUINAS.includes(equipo)) return false;
+    this.state.ganadorDesempate = equipo;
+    this.publicar();
+    return true;
+  }
+
+  avanzarAutomaticamente() {
+    // Ignorar llamadas pendientes de versiones anteriores: el avance es manual.
+    return false;
   }
 
   siguientePregunta() {
-    if (this.combateTerminado()) return false;
-    const { roja, azul } = this.state.puntosRonda;
-    if (roja >= META_ACIERTOS && azul < META_ACIERTOS) return this.otorgarCaida('ROJA');
-    if (azul >= META_ACIERTOS && roja < META_ACIERTOS) return this.otorgarCaida('AZUL');
+    if (this.state.fase === 'PRESENTACION') return false;
+    if (this.combateTerminado() || !this.state.puntoPregunta) return false;
+    this.state.avanceAutomaticoEn = null;
+    this.actualizarVisibilidadSolucion(false);
+    const ganador = ganadorPorVidas(this.state);
+    if (ganador) return this.otorgarCaida(ganador);
+    if (this.state.requiereDesempate) {
+      return this.state.ganadorDesempate ? this.otorgarCaida(this.state.ganadorDesempate) : false;
+    }
 
     const totalPreguntas = obtenerTotalPreguntasCaida(this.state.caidaActual);
     if (this.state.preguntaIndex < totalPreguntas - 1) {
       this.state.preguntaIndex += 1;
+      this.prepararSiguienteTurno();
       this.state.fase = 'PREGUNTA';
       this.state.puntoPregunta = null;
       this.state.opcionesIncorrectas = [];
       this.state.requiereDesempate = false;
+      this.state.ganadorDesempate = null;
       this.state.efectoSonido = null;
       this.publicar();
       return true;
     }
 
+    this.state.ultimoIntento = null;
     this.state.requiereDesempate = true;
+    this.state.ganadorDesempate = null;
     this.state.fase = 'REVELACION';
     this.state.efectoSonido = null;
     this.publicar();
-    return false;
+    return true;
   }
 
   otorgarCaida(esquinaGanadora) {
     const esquina = String(esquinaGanadora || '').toUpperCase();
     if (this.combateTerminado() || !ESQUINAS.includes(esquina)) return false;
+    this.state.avanceAutomaticoEn = null;
+    this.state.equipoInicialCaida = null;
+    this.state.turnoActual = null;
+    this.state.inicioTurnoPregunta = null;
+    this.state.ultimoIntento = null;
     const clave = esquina.toLowerCase();
     this.state.caidasGanadas[clave] = Math.min(2, this.state.caidasGanadas[clave] + 1);
     this.state.puntosRonda = { roja: 0, azul: 0 };
+    this.state.marcador = crearMarcador();
     this.state.preguntaIndex = 0;
     this.state.puntoPregunta = null;
     this.state.opcionesIncorrectas = [];
     this.state.requiereDesempate = false;
+    this.state.ganadorDesempate = null;
+    this.actualizarVisibilidadSolucion(false);
 
     if (this.state.caidasGanadas[clave] >= 2) {
       this.state.ganadorCombate = esquina;
@@ -416,9 +714,11 @@ class TriviaApp {
   cambiarFase(fase) {
     const nuevaFase = String(fase || '').toUpperCase();
     if (!FASES.includes(nuevaFase)) return false;
-    if (this.combateTerminado() && !['MASCARA_VS_MASCARA', 'PODIO'].includes(nuevaFase)) return false;
+    if (this.combateTerminado() && !['PRESENTACION', 'MASCARA_VS_MASCARA', 'PODIO'].includes(nuevaFase)) return false;
+    this.state.avanceAutomaticoEn = null;
     this.state.fase = nuevaFase;
-    this.state.efectoSonido = nuevaFase === 'CARTEL_CAIDA' ? 'CAMPANA' : null;
+    this.state.efectoSonido = null;
+    this.actualizarVisibilidadSolucion(false);
     this.state.inicioCartelCaida = nuevaFase === 'CARTEL_CAIDA' ? Date.now() : null;
     this.publicar();
     return true;
@@ -428,14 +728,16 @@ class TriviaApp {
     if (!this.combateTerminado() || this.state.fase !== 'MASCARA_VS_MASCARA') return false;
     this.state.fase = 'PODIO';
     this.state.efectoSonido = null;
+    this.actualizarVisibilidadSolucion(false);
     this.publicar();
     return true;
   }
 
   reiniciarCombate() {
     this.state = clonar(estadoInicial);
+    this.state.partidaId = globalThis.crypto.randomUUID();
     this.state.ordenPreguntas = crearOrdenPreguntas();
-    this.state.inicioCartelCaida = Date.now();
+    this.state.inicioCartelCaida = null;
     this.publicar();
     return true;
   }
@@ -445,11 +747,69 @@ class TriviaApp {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       if (AudioContextClass) this.audioContext = new AudioContextClass();
     }
-    if (this.audioContext?.state === 'suspended') this.audioContext.resume();
+    if (this.audioContext?.state === 'suspended') this.audioContext.resume().catch(() => {});
+    this.prepararAbucheo();
+  }
+
+  prepararAbucheo() {
+    const audio = document.getElementById('incorrectAnswerAudio');
+    if (!audio || !this.audioContext || this.abucheoPreparacion) return;
+    // Descargar y decodificar antes de la respuesta evita iniciar el MP3 en frío.
+    this.abucheoPreparacion = fetch(audio.src)
+      .then(respuesta => {
+        if (!respuesta.ok) throw new Error('No se pudo cargar el abucheo');
+        return respuesta.arrayBuffer();
+      })
+      .then(datos => this.audioContext.decodeAudioData(datos))
+      .then(buffer => { this.abucheoBuffer = buffer; })
+      .catch(() => {
+        // El elemento de audio precargado sigue disponible como respaldo.
+        this.abucheoPreparacion = null;
+      });
   }
 
   reproducirEfecto(efecto) {
     if (!efecto) return;
+    if (efecto === 'ABUCHEO') {
+      if (this.abucheoBuffer && this.audioContext?.state === 'running') {
+        if (this.abucheoSource) this.abucheoSource.stop();
+        const source = this.audioContext.createBufferSource();
+        source.buffer = this.abucheoBuffer;
+        source.connect(this.audioContext.destination);
+        source.onended = () => {
+          source.disconnect();
+          if (this.abucheoSource === source) this.abucheoSource = null;
+        };
+        this.abucheoSource = source;
+        source.start();
+        return;
+      }
+      const abucheo = document.getElementById('incorrectAnswerAudio');
+      if (abucheo) { abucheo.currentTime = 0; abucheo.play().catch(() => {}); }
+      return;
+    }
+    if (efecto === 'ACIERTO') {
+      // Saltar los primeros dos segundos y reproducir del segundo 2 al 4.
+      const gritos = document.getElementById('correctAnswerAudio');
+      if (gritos) {
+        clearInterval(this.gritosFadeInterval);
+        const actualizarVolumen = () => {
+          // Desvanecer durante los últimos 500 ms del fragmento.
+          gritos.volume = Math.max(0, Math.min(1, (4 - gritos.currentTime) / 0.5));
+          if (gritos.currentTime >= 4) {
+            gritos.pause();
+            clearInterval(this.gritosFadeInterval);
+          }
+        };
+        gritos.ontimeupdate = actualizarVolumen;
+        gritos.onpause = gritos.onended = () => clearInterval(this.gritosFadeInterval);
+        gritos.currentTime = 2;
+        gritos.volume = 1;
+        this.gritosFadeInterval = setInterval(actualizarVolumen, 30);
+        gritos.play().catch(() => clearInterval(this.gritosFadeInterval));
+      }
+      return;
+    }
     if (efecto === 'CAMPANA') {
       const campana = document.getElementById('boxingBellAudio');
       if (campana) { campana.currentTime = 0; campana.play().catch(() => {}); }
@@ -473,6 +833,54 @@ class TriviaApp {
   }
 }
 
+const ACCIONES_TRANSACCIONALES = ['seleccionarTurno', 'seleccionarOpcion', 'deshacerUltimoIntento',
+  'nadieAcerto', 'ocultarSolucion', 'asignarDesempate', 'avanzarAutomaticamente', 'siguientePregunta', 'otorgarCaida', 'cambiarFase', 'irAlPodio', 'reiniciarCombate'];
+const ACCIONES_ORIGINALES = Object.fromEntries(ACCIONES_TRANSACCIONALES.map(nombre => [nombre, TriviaApp.prototype[nombre]]));
+for (const nombre of ACCIONES_TRANSACCIONALES) {
+  const ejecutar = TriviaApp.prototype[nombre];
+  TriviaApp.prototype[nombre] = async function(...args) {
+    if (this.operacionPendiente) return false;
+    this.operacionPendiente = true;
+    this.notificar();
+    const esperado = this.state;
+    const transformar = valor => {
+      if (!valor) return;
+      const estado = normalizarEstado(valor);
+      if (estado.revision !== esperado.revision || estado.partidaId !== esperado.partidaId) return;
+      const borrador = Object.create(TriviaApp.prototype);
+      borrador.state = estado;
+      borrador.publicar = () => {};
+      // Las acciones internas operan sobre el mismo borrador sin otra transacción.
+      for (const [metodo, original] of Object.entries(ACCIONES_ORIGINALES)) borrador[metodo] = original;
+      if (!ejecutar.apply(borrador, args)) return;
+      borrador.state.revision = estado.revision + 1;
+      return normalizarEstado(borrador.state);
+    };
+    try {
+      let siguiente;
+      if (this.dbRef) {
+        const resultado = await this.dbRef.transaction(transformar, undefined, false);
+        if (!resultado.committed) return false;
+        siguiente = normalizarEstado(resultado.snapshot.val());
+        this.recibirEstado(siguiente);
+      } else {
+        siguiente = transformar(this.state);
+        if (!siguiente) return false;
+        this.state = siguiente;
+        this.publicar();
+      }
+      if (!esperado.ganadorCombate && siguiente.ganadorCombate) {
+        try { enviarPartidaAGoogleSheets(siguiente); }
+        catch (error) { console.error('La partida terminó, pero no se pudo enviar a Sheets:', error); }
+      }
+      return true;
+    } finally {
+      this.operacionPendiente = false;
+      this.notificar();
+    }
+  };
+}
+
 function obtenerPreguntaActual(state, bancoPreguntas = BANCO_PREGUNTAS) {
   const estado = normalizarEstado(state);
   const totalPreguntasCaida = obtenerTotalPreguntasCaida(estado.caidaActual, bancoPreguntas);
@@ -490,12 +898,12 @@ if (typeof window !== 'undefined') {
   window.DB_STATE_PATH = DB_STATE_PATH;
   window.estadoInicial = estadoInicial;
   window.META_ACIERTOS = META_ACIERTOS;
-  window.CARTEL_CAIDA_DURACION_MS = CARTEL_CAIDA_DURACION_MS;
   window.obtenerTotalPreguntasCaida = obtenerTotalPreguntasCaida;
   window.obtenerPreguntaActual = obtenerPreguntaActual;
+  window.hideImpactBanner = hideImpactBanner;
   window.triviaApp = new TriviaApp();
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { TriviaApp, estadoInicial, normalizarEstado, crearOrdenPreguntas, obtenerPreguntaActual, obtenerTotalPreguntasCaida, META_ACIERTOS, CARTEL_CAIDA_DURACION_MS, DB_NAMESPACE, DB_STATE_PATH };
+  module.exports = { construirHistorialSheets, TriviaApp, estadoInicial, normalizarEstado, crearOrdenPreguntas, obtenerPreguntaActual, obtenerTotalPreguntasCaida, META_ACIERTOS, DB_NAMESPACE, DB_STATE_PATH };
 }

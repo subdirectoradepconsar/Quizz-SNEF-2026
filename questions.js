@@ -1,7 +1,8 @@
 /** Banco oficial · Lucha Libre 2 de 3 Caídas · SNEF 2026. */
 const BANCO_PREGUNTAS = {
   1: {
-    nombre: "¡Primera caída! · ¿QUÉ TANTO LE SABES?",
+    etiqueta: "Primera caída",
+    nombre: "¿QUÉ TANTO LE SABES?",
     subtitulo: "Conocimiento y Diagnóstico",
     preguntas: [
       { id: "c1_p1", pregunta: "¿Qué es una cuenta Afore?", opciones: ["Una cuenta para guardar dinero de uso diario", "Una cuenta individual donde se administran recursos para el retiro", "Una tarjeta de crédito especial", "Un seguro de vida"], correcta: 1, reflexion: "Tu cuenta Afore es individual y concentra recursos destinados a tu retiro y a tu vivienda." },
@@ -19,7 +20,8 @@ const BANCO_PREGUNTAS = {
     ]
   },
   2: {
-    nombre: "¡Segunda caída! · ¿CUÁL ES TU JUGADA?",
+    etiqueta: "Segunda caída",
+    nombre: "¿CUÁL ES TU JUGADA?",
     subtitulo: "Estrategia y Decisión",
     preguntas: [
       { id: "c2_p1", pregunta: "Vale tiene 24 años y piensa: “Todavía falta muchísimo para el retiro. Lo veo después”. ¿Qué le aconsejarías?", opciones: ["No hacer nada hasta los 50", "Conocer desde ahora su cuenta y empezar a tomar decisiones con tiempo", "Cerrar su cuenta", "Esperar a que alguien le diga qué hacer"], correcta: 1, reflexion: "El tiempo también es parte de la planeación." },
@@ -37,7 +39,8 @@ const BANCO_PREGUNTAS = {
     ]
   },
   3: {
-    nombre: "¡Tercera y última caída! · TÚ, ¿QUÉ HARÍAS?",
+    etiqueta: "Tercera caída",
+    nombre: "TÚ, ¿QUÉ HARÍAS?",
     subtitulo: "Decisiones y Plenitud Futura",
     preguntas: [
       { id: "c3_p1", pregunta: "Recibes un mensaje que dice: “Yo puedo ayudarte a hacer un trámite de tu Afore. Sólo págame una comisión”. ¿Qué haces?", opciones: ["Pagas de inmediato", "Compartes tus datos", "Verificas primero en canales oficiales cómo se realiza el trámite", "Lo reenvías a tus amigos"], correcta: 2, reflexion: "Antes de entregar dinero o información, verifica." },

@@ -7,11 +7,11 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <link rel="stylesheet" href="styles.css?v=20260902-1">
+  <link rel="stylesheet" href="styles.css?v=20260907-5">
 </head>
 <body class="moderator-shell min-h-screen text-slate-100 select-none pb-10">
-  <audio id="boxingBellAudio" src="Sonidocampanadebox.mp3" preload="auto"></audio>
-  <div id="moderatorImpactBanner" class="impact-banner banner-incorrect" role="status" aria-live="assertive">❌ ¡RESPUESTA INCORRECTA!</div>
+  <audio id="boxingBellAudio" src="Sonidos/Sonidocampanadebox.mp3" preload="auto"></audio>
+  <audio id="correctAnswerAudio" src="Sonidos/Gritos.mp3" preload="auto"></audio>
 
   <header class="sticky top-0 z-40 border-b border-amber-400/30 bg-slate-950/95 backdrop-blur-xl">
     <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 md:px-6">
@@ -20,7 +20,7 @@
         <h1 class="font-lucha text-2xl tracking-wider text-white md:text-3xl">Panel de control</h1>
       </div>
       <div class="flex flex-wrap items-center gap-2 text-sm font-extrabold">
-        <span id="headerCaida" class="status-pill bg-amber-400 text-slate-950">Caída 1</span>
+        <span id="headerCaida" class="status-pill bg-amber-400 text-slate-950">Primera caída</span>
         <span id="headerPregunta" class="status-pill bg-slate-800">Pregunta 1/6</span>
         <span id="headerMarcador" class="status-pill border border-white/10 bg-slate-900">🔴 0 · 0 🔵</span>
         <span class="invisible status-pill border border-emerald-400/30 bg-emerald-950 text-emerald-300">Firebase: trivia_b</span>
@@ -31,33 +31,39 @@
   <main class="mx-auto grid max-w-7xl gap-5 p-4 md:p-6 lg:grid-cols-12">
     <section class="space-y-5 lg:col-span-3">
       <article class="control-card">
-        <p class="eyebrow mb-3">Marcador de esta caída</p>
+        <p class="eyebrow mb-3">Marcador actual</p>
+        <p id="moderatorTurn" class="turn-status" role="status">Toca una esquina para elegir quién responde</p>
         <div class="grid gap-3">
-          <div class="life-card life-card-red moderator-life-card"><div class="life-team"><p class="life-label text-red-200">Esquina roja</p><p class="life-caption">Vidas</p></div><div id="vidasRoja" class="life-masks"></div><div class="life-score"><strong id="puntosRoja">0 / 3</strong><span>Aciertos</span></div></div>
-          <div class="life-card life-card-blue moderator-life-card"><div class="life-team"><p class="life-label text-blue-200">Esquina azul</p><p class="life-caption">Vidas</p></div><div id="vidasAzul" class="life-masks"></div><div class="life-score"><strong id="puntosAzul">0 / 3</strong><span>Aciertos</span></div></div>
+          <div id="turnCardRoja" class="life-card life-card-red moderator-life-card"><div class="life-team"><button id="turnRoja" type="button" class="life-label turn-select text-red-200" aria-pressed="false" onclick="ejecutarAccion(() => triviaApp.seleccionarTurno('ROJA'))">Esquina roja</button><p class="life-caption">Vidas</p></div><div id="vidasRoja" class="life-masks"></div><div class="life-controls"><button id="quitarRoja" type="button" onclick="quitarVida('roja')" aria-label="Penalizar esquina roja: quitar una vida">−1</button><button id="restaurarRoja" type="button" onclick="restaurarVida('roja')" aria-label="Restaurar una vida a la esquina roja">+</button></div><div class="life-score"><strong id="puntosRoja">0</strong><span>Aciertos</span></div></div>
+          <div id="turnCardAzul" class="life-card life-card-blue moderator-life-card"><div class="life-team"><button id="turnAzul" type="button" class="life-label turn-select text-blue-200" aria-pressed="false" onclick="ejecutarAccion(() => triviaApp.seleccionarTurno('AZUL'))">Esquina azul</button><p class="life-caption">Vidas</p></div><div id="vidasAzul" class="life-masks"></div><div class="life-controls"><button id="quitarAzul" type="button" onclick="quitarVida('azul')" aria-label="Penalizar esquina azul: quitar una vida">−1</button><button id="restaurarAzul" type="button" onclick="restaurarVida('azul')" aria-label="Restaurar una vida a la esquina azul">+</button></div><div class="life-score"><strong id="puntosAzul">0 / 3</strong><span>Aciertos</span></div></div>
         </div>
       </article>
+        <p id="lifeNotice" class="fall-notice" role="status" hidden></p>
+        <p id="lifeError" role="alert" hidden></p>
     </section>
 
     <section class="space-y-5 lg:col-span-6">
       <article class="control-card min-h-full">
         <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
           <div>
-            <p id="temaLabel" class="eyebrow">Primera caída</p>
-            <span id="faseLabel" class="inline-flex rounded-full bg-amber-400/15 px-3 py-1 text-xs font-black uppercase text-amber-300">Cartel de caída</span>
+            <p id="temaLabel" class="eyebrow">¿QUÉ TANTO LE SABES?</p>
+            <span id="faseLabel" class="inline-flex rounded-full bg-amber-400/15 px-3 py-1 text-xs font-black uppercase text-amber-300">Caída</span>
           </div>
           <span id="questionBadge" class="rounded-xl bg-slate-950 px-3 py-2 font-mono text-sm font-black">Pregunta 1 / 6</span>
         </div>
         <h2 id="questionText" class="mb-5 text-xl font-black leading-snug md:text-2xl">Cargando pregunta…</h2>
         <div id="optionsList" class="space-y-2"></div>
-        <div id="reflectionBox" class="mt-4 hidden rounded-2xl border border-emerald-400/30 bg-emerald-950/50 p-4 text-sm leading-relaxed text-emerald-100"></div>
-        <div id="tieNotice" class="mt-4 hidden rounded-2xl border-2 border-amber-400 bg-amber-950/70 p-4 text-center font-black text-amber-200">⚠️ Nadie llegó a tres aciertos. El staff debe otorgar la caída manualmente.</div>
+        <div id="tieNotice" class="mt-4 hidden rounded-2xl border-2 border-amber-400 bg-amber-950/70 p-4 text-center font-black text-amber-200">⚠️ Ambas esquinas conservan vidas. El staff debe decidir qué esquina gana.</div>
 
+        <p id="manualAdvanceNotice" class="mt-3 text-sm text-amber-200" role="status"></p>
+        <div id="tieControls" class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 hidden">
+          <button id="btnTieRoja" type="button" class="touch-button bg-red-950 text-red-200" onclick="confirmarDesempate('ROJA')" disabled>🔴 Asignar caída a Roja</button>
+          <button id="btnTieAzul" type="button" class="touch-button bg-blue-950 text-blue-200" onclick="confirmarDesempate('AZUL')" disabled>🔵 Asignar caída a Azul</button>
+        </div>
         <div class="mt-6 grid grid-cols-1 gap-3 border-t border-white/10 pt-5 sm:grid-cols-2">
-          <button id="btnReveal" type="button" aria-label="Nadie acertó, mostrar solución" onclick="triviaApp.nadieAcerto()" class="touch-button min-h-[48px] border border-amber-300/40 bg-slate-800 text-amber-100 sm:col-span-2">⚠️ Nadie acertó (Mostrar solución)</button>
-          <button id="btnPuntoRoja" onclick="triviaApp.anotarAcierto('ROJA')" class="touch-button bg-red-600 text-white">+1 Punto esquina roja</button>
-          <button id="btnPuntoAzul" onclick="triviaApp.anotarAcierto('AZUL')" class="touch-button bg-blue-600 text-white">+1 Punto esquina azul</button>
-          <button id="btnSiguiente" onclick="triviaApp.siguientePregunta()" class="touch-button bg-slate-100 text-slate-950 sm:col-span-2">➡️ Siguiente pregunta</button>
+          <button id="btnReveal" type="button" aria-label="Nadie acertó, mostrar solución" class="touch-button solution-toggle-button min-h-[48px] sm:col-span-2">⚠️ Nadie acertó (Mostrar solución)</button>
+          <button id="btnUndo" type="button" onclick="ejecutarAccion(() => triviaApp.deshacerUltimoIntento())" class="touch-button w-full border border-slate-400/40 bg-slate-800 text-center text-slate-200 sm:col-span-2" disabled>↩️ Deshacer último intento</button>
+          <button id="btnSiguiente" type="button" onclick="ejecutarAccion(() => triviaApp.siguientePregunta())" class="touch-button bg-slate-100 text-slate-950 sm:col-span-2">➡️ Siguiente pregunta</button>
         </div>
       </article>
     </section>
@@ -66,12 +72,18 @@
       <article class="control-card">
         <p class="eyebrow mb-3">Cambiar fase</p>
         <div class="grid gap-2">
-          <button onclick="triviaApp.cambiarFase('CARTEL_CAIDA')" class="phase-button">📣 Cartel de caída</button>
-          <button onclick="triviaApp.cambiarFase('PREGUNTA')" class="phase-button">❓ Pregunta</button>
-          <button onclick="triviaApp.cambiarFase('MASCARA_VS_MASCARA')" class="phase-button">🎭 Máscara vs máscara</button>
-          <button onclick="triviaApp.cambiarFase('PODIO')" class="phase-button">🥇 Podio final</button>
+          <button onclick="ejecutarAccion(() => triviaApp.cambiarFase('PRESENTACION'))" class="phase-button">🐷 Presentación</button>
+          <button onclick="ejecutarAccion(() => triviaApp.cambiarFase('CARTEL_CAIDA'))" class="phase-button">📣 Caída</button>
+          <button onclick="ejecutarAccion(() => triviaApp.cambiarFase('PREGUNTA'))" class="phase-button">❓ Mostrar preguntas</button>
+          <button onclick="ejecutarAccion(() => triviaApp.cambiarFase('MASCARA_VS_MASCARA'))" class="phase-button">🎭 Máscara vs máscara</button>
+          <button onclick="ejecutarAccion(() => triviaApp.cambiarFase('PODIO'))" class="phase-button">🥇 Podio final</button>
         </div>
-        <button id="btnPodio" onclick="triviaApp.irAlPodio()" class="touch-button mt-3 hidden w-full bg-gradient-to-r from-fuchsia-600 to-amber-500 text-white">Continuar al podio →</button>
+        <button id="btnPodio" onclick="ejecutarAccion(() => triviaApp.irAlPodio())" class="touch-button mt-3 hidden w-full bg-gradient-to-r from-fuchsia-600 to-amber-500 text-white">Continuar al podio →</button>
+      </article>
+
+      <article class="control-card">
+        <p class="eyebrow mb-3">Sonidos</p>
+        <button id="btnCampana" type="button" onclick="triviaApp.reproducirEfecto('CAMPANA')" class="touch-button w-full bg-amber-400 text-slate-950">🔔 Tocar campana</button>
       </article>
 
       <article class="control-card border-red-500/30">
@@ -80,50 +92,31 @@
     </section>
   </main>
 
-  <script src="questions.js"></script>
-  <script src="app.js?v=20260902-2"></script>
+  <script src="questions.js?v=20260907-1"></script>
+  <script src="app.js?v=20260908-2"></script>
   <script>
     const $ = (id) => document.getElementById(id);
-    const faseTexto = { INTRO: 'Introducción', CARTEL_CAIDA: 'Cartel de caída', PREGUNTA: 'Pregunta', REVELACION: 'Revelación', MASCARA_VS_MASCARA: 'Máscara vs máscara', PODIO: 'Podio final' };
-    let ultimaSecuenciaImpacto = null;
-    let temporizadorCartelCaida = null;
-    let cartelCaidaProgramado = null;
-
-    function programarPreguntaAutomatica(state) {
-      if (state.fase !== 'CARTEL_CAIDA' || state.ganadorCombate) {
-        clearTimeout(temporizadorCartelCaida);
-        temporizadorCartelCaida = null;
-        cartelCaidaProgramado = null;
-        return;
-      }
-
-      const inicio = Number(state.inicioCartelCaida) || Date.now();
-      const firmaCartel = `${state.caidaActual}:${inicio}`;
-      if (cartelCaidaProgramado === firmaCartel) return;
-
-      clearTimeout(temporizadorCartelCaida);
-      cartelCaidaProgramado = firmaCartel;
-      const esperaRestante = Math.max(0, CARTEL_CAIDA_DURACION_MS - (Date.now() - inicio));
-      temporizadorCartelCaida = setTimeout(() => {
-        const estadoActual = triviaApp.state;
-        const inicioActual = Number(estadoActual.inicioCartelCaida) || inicio;
-        if (estadoActual.fase === 'CARTEL_CAIDA'
-          && estadoActual.caidaActual === state.caidaActual
-          && inicioActual === inicio) {
-          triviaApp.cambiarFase('PREGUNTA');
-        }
-      }, esperaRestante);
-    }
-
+    const faseTexto = { PRESENTACION: 'Presentación', INTRO: 'Caída', CARTEL_CAIDA: 'Caída', PREGUNTA: 'Mostrar preguntas', REVELACION: 'Revelación', MASCARA_VS_MASCARA: 'Máscara vs máscara', PODIO: 'Podio final' };
     function renderVidas(targetId, vidasRestantes, color) {
-      renderMascarasLucha(targetId, vidasRestantes, META_ACIERTOS, color, {
+      renderMascarasLucha(targetId, vidasRestantes, MAX_VIDAS, color, {
         numeradas: true,
-        etiqueta: `${vidasRestantes} de ${META_ACIERTOS} vidas restantes`
+        etiqueta: `${vidasRestantes} de ${MAX_VIDAS} vidas restantes`
       });
     }
 
     function handleOptionSelect(optionIndex) {
-      triviaApp.seleccionarOpcion(optionIndex);
+      ejecutarAccion(() => triviaApp.seleccionarOpcion(optionIndex));
+    }
+
+    function alternarSolucionModerator() {
+      if (triviaApp.state.mostrarSolucion) ejecutarAccion(() => triviaApp.ocultarSolucion());
+      else ejecutarAccion(() => triviaApp.nadieAcerto());
+    }
+
+    function handleModeratorKeydown(event) {
+      if (event.key !== 'Escape' || !triviaApp.state.mostrarSolucion) return;
+      event.preventDefault();
+      ejecutarAccion(() => triviaApp.ocultarSolucion());
     }
 
     function renderOpcionesModerator(pregunta, state) {
@@ -132,11 +125,11 @@
 
       pregunta.opciones.forEach((opcion, index) => {
         const optionElement = document.createElement('button');
-        const correcta = state.fase === 'REVELACION' && index === pregunta.correcta;
+        const correcta = state.mostrarSolucion && index === pregunta.correcta;
         const incorrecta = state.opcionesIncorrectas.includes(index);
         optionElement.type = 'button';
         optionElement.className = `moderator-option${correcta ? ' is-correct' : ''}${incorrecta ? ' is-incorrect' : ''}`;
-        optionElement.disabled = Boolean(state.ganadorCombate) || state.fase === 'REVELACION' || Boolean(state.puntoPregunta);
+        optionElement.disabled = vidaPendiente || triviaApp.operacionPendiente || incorrecta || !state.turnoActual || !['INTRO', 'CARTEL_CAIDA', 'PREGUNTA'].includes(state.fase) || Boolean(state.ganadorCombate) || Boolean(ganadorPorVidas(state)) || state.mostrarSolucion || Boolean(state.puntoPregunta);
         optionElement.innerHTML = `<span>${String.fromCharCode(65 + index)}</span><p>${opcion}</p>`;
         let seleccionProcesada = false;
         const seleccionarUnaVez = () => {
@@ -157,52 +150,139 @@
       });
     }
 
+    function mostrarAvisoAvanceManual(state) {
+      const ultimaRespondida = state.preguntaIndex === obtenerTotalPreguntasCaida(state.caidaActual) - 1 && Boolean(state.puntoPregunta);
+      $('manualAdvanceNotice').textContent = state.puntoPregunta && !state.ganadorCombate
+        ? ultimaRespondida
+          ? 'Pulsa Cerrar caída para continuar.'
+          : 'Pulsa Siguiente pregunta para continuar.'
+        : '';
+    }
+
     function renderModerator(state) {
+      mostrarAvisoAvanceManual(state);
       const { bloque, pregunta, totalPreguntasCaida } = obtenerPreguntaActual(state);
-      const revelada = state.fase === 'REVELACION';
+      const pendiente = vidaPendiente || triviaApp.operacionPendiente;
+      const cerrado = Boolean(state.puntoPregunta) || Boolean(state.ganadorCombate) || Boolean(ganadorPorVidas(state));
+      const turno = cerrado ? null : state.turnoActual;
+      $('moderatorTurn').textContent = cerrado ? 'Pregunta cerrada' : turno ? 'Responde: ' + nombreEsquina(turno) + ' · Pregunta ' + ((state.preguntaIndex % 3) + 1) + ' de 3' : 'Toca una esquina para elegir quién responde';
+      $('moderatorTurn').dataset.team = turno || '';
+      for (const color of ['Roja', 'Azul']) {
+        const activo = turno === color.toUpperCase();
+        $('turnCard' + color).classList.toggle('has-turn', activo);
+        $('turn' + color).setAttribute('aria-pressed', String(activo));
+        $('turn' + color).disabled = pendiente || cerrado || Boolean(state.historialPreguntas[claveRegistro(state)]?.intentos.length) || state.preguntaIndex !== 0 || !['INTRO', 'CARTEL_CAIDA', 'PREGUNTA'].includes(state.fase);
+      }
+      $('btnUndo').disabled = pendiente || !state.ultimoIntento || Boolean(state.ganadorCombate) || state.requiereDesempate;
       const terminado = Boolean(state.ganadorCombate);
-      const metaAlcanzada = state.puntosRonda.roja >= META_ACIERTOS || state.puntosRonda.azul >= META_ACIERTOS;
-
-      programarPreguntaAutomatica(state);
-
-      if (ultimaSecuenciaImpacto === null) ultimaSecuenciaImpacto = state.secuenciaImpacto;
-      else {
-        if (state.secuenciaImpacto > ultimaSecuenciaImpacto && state.tipoImpacto) {
-          showImpactBanner(state.tipoImpacto, 'moderatorImpactBanner');
-        }
-        ultimaSecuenciaImpacto = state.secuenciaImpacto;
+      const ganadorCaida = ganadorPorVidas(state);
+      const metaAlcanzada = Boolean(ganadorCaida);
+      $('lifeNotice').hidden = !ganadorCaida;
+      $('lifeNotice').textContent = ganadorCaida ? `¡${bloque.etiqueta} para la Esquina ${ganadorCaida === 'ROJA' ? 'Roja' : 'Azul'}!` : '';
+      for (const color of ['Roja', 'Azul']) {
+        $('quitar' + color).disabled = pendiente || terminado || metaAlcanzada;
+        $('restaurar' + color).disabled = pendiente || terminado || state.marcador['esquina' + color].vidas >= MAX_VIDAS;
       }
 
-      $('headerCaida').textContent = `Caída ${state.caidaActual}`;
+      $('headerCaida').textContent = bloque.etiqueta;
       $('headerPregunta').textContent = `Pregunta ${state.preguntaIndex + 1}/${totalPreguntasCaida}`;
       $('headerMarcador').textContent = `🔴 ${state.caidasGanadas.roja} · ${state.caidasGanadas.azul} 🔵`;
-      $('puntosRoja').textContent = `${state.puntosRonda.roja} / ${META_ACIERTOS}`;
-      $('puntosAzul').textContent = `${state.puntosRonda.azul} / ${META_ACIERTOS}`;
-      renderVidas('vidasRoja', META_ACIERTOS - state.puntosRonda.azul, 'red');
-      renderVidas('vidasAzul', META_ACIERTOS - state.puntosRonda.roja, 'blue');
+      $('puntosRoja').textContent = state.marcador.esquinaRoja.aciertos;
+      $('puntosAzul').textContent = state.marcador.esquinaAzul.aciertos;
+      renderVidas('vidasRoja', state.marcador.esquinaRoja.vidas, 'red');
+      renderVidas('vidasAzul', state.marcador.esquinaAzul.vidas, 'blue');
       $('temaLabel').textContent = bloque.nombre;
       $('faseLabel').textContent = faseTexto[state.fase] || state.fase;
       $('questionBadge').textContent = `Pregunta ${state.preguntaIndex + 1} / ${totalPreguntasCaida}`;
       $('questionText').textContent = pregunta.pregunta;
       renderOpcionesModerator(pregunta, state);
-      $('reflectionBox').innerHTML = `<strong>Microenseñanza:</strong> ${pregunta.reflexion}`;
-      $('reflectionBox').classList.toggle('hidden', !revelada);
-      $('tieNotice').textContent = `⚠️ Nadie llegó a ${META_ACIERTOS} aciertos tras ${totalPreguntasCaida} preguntas. El staff debe otorgar la caída manualmente.`;
-      $('tieNotice').classList.toggle('hidden', !state.requiereDesempate);
-      $('btnReveal').disabled = terminado || state.fase !== 'PREGUNTA' || Boolean(state.puntoPregunta);
-      $('btnPuntoRoja').disabled = terminado || metaAlcanzada || Boolean(state.puntoPregunta);
-      $('btnPuntoAzul').disabled = terminado || metaAlcanzada || Boolean(state.puntoPregunta);
-      $('btnSiguiente').disabled = terminado;
-      $('btnSiguiente').textContent = metaAlcanzada ? '🏆 Cerrar caída' : '➡️ Siguiente pregunta';
+      $('tieNotice').textContent = `⚠️ Ambas esquinas tienen las mismas vidas tras ${totalPreguntasCaida} preguntas. El staff debe decidir qué esquina gana.`;
+      const empateActivo = state.requiereDesempate && !terminado && !metaAlcanzada;
+      $('tieNotice').classList.toggle('hidden', !empateActivo);
+      $('tieControls').classList.toggle('hidden', !empateActivo);
+      for (const color of ['Roja', 'Azul']) {
+        $('btnTie' + color).disabled = pendiente || !empateActivo;
+        $('btnTie' + color).setAttribute('aria-pressed', String(state.ganadorDesempate === color.toUpperCase()));
+      }
+      if (empateActivo) $('tieNotice').textContent = state.ganadorDesempate
+        ? nombreEsquina(state.ganadorDesempate) + ': caída asignada. Pulsa Cerrar ' + bloque.etiqueta.toLowerCase() + ' para confirmar y continuar.'
+        : '⚠️ Preguntas terminadas: empate en vidas. Asigna la caída para habilitar su cierre.';
+      const solucionVisible = state.mostrarSolucion === true;
+      $('btnReveal').disabled = solucionVisible
+        ? false
+        : terminado || metaAlcanzada || state.fase !== 'PREGUNTA' || Boolean(state.puntoPregunta);
+      $('btnReveal').classList.toggle('is-undo', solucionVisible);
+      $('btnReveal').textContent = solucionVisible
+        ? '↩️ Ocultar solución / Volver a pregunta (Esc)'
+        : '⚠️ Nadie acertó (Mostrar solución)';
+      $('btnReveal').setAttribute('aria-label', solucionVisible
+        ? 'Ocultar solución y volver a la pregunta'
+        : 'Nadie acertó, mostrar solución');
+      $('btnSiguiente').disabled = pendiente || terminado || !state.puntoPregunta || state.fase === 'PRESENTACION' || (empateActivo && !state.ganadorDesempate);
+      if (pendiente || !state.turnoActual) $('btnReveal').disabled = true;
+      $('btnSiguiente').textContent = (metaAlcanzada || empateActivo || (state.preguntaIndex === totalPreguntasCaida - 1 && state.puntoPregunta)) ? `🏆 Cerrar ${bloque.etiqueta.toLowerCase()}` : '➡️ Siguiente pregunta';
       $('btnPodio').classList.toggle('hidden', state.fase !== 'MASCARA_VS_MASCARA' || !terminado);
     }
 
+    async function ejecutarAccion(accion) {
+      if (vidaPendiente || triviaApp.operacionPendiente) return false;
+      $('lifeError').hidden = true;
+      try {
+        const aplicado = await accion();
+        if (!aplicado) {
+          $('lifeError').textContent = 'La acción no se aplicó. Revisa el turno y el estado actual antes de intentar de nuevo.';
+          $('lifeError').hidden = false;
+        }
+        return aplicado;
+      } catch (error) {
+        $('lifeError').textContent = 'No se pudo guardar el cambio. Revisa la conexión e intenta de nuevo.';
+        $('lifeError').hidden = false;
+        console.error(error);
+        return false;
+      }
+    }
+
+    let vidaPendiente = false;
+    async function cambiarVida(esquina, cambio) {
+      if (vidaPendiente || triviaApp.operacionPendiente) return false;
+      vidaPendiente = true;
+      $('lifeError').hidden = true;
+      renderModerator(triviaApp.state);
+      try {
+        return await triviaApp.modificarVida(esquina, cambio);
+      } catch (error) {
+        $('lifeError').textContent = 'No se pudo guardar el cambio de vidas. Intenta de nuevo.';
+        $('lifeError').hidden = false;
+        console.error(error);
+        return false;
+      } finally {
+        vidaPendiente = false;
+        renderModerator(triviaApp.state);
+      }
+    }
+    function quitarVida(esquina) { return cambiarVida(esquina, -1); }
+    function restaurarVida(esquina) { return cambiarVida(esquina, 1); }
+
+    function confirmarDesempate(esquina) {
+      if (window.confirm('¿Asignar esta caída a la ' + nombreEsquina(esquina).toLowerCase() + '?')) {
+        ejecutarAccion(() => triviaApp.asignarDesempate(esquina));
+      }
+    }
+
     function confirmarReinicio() {
-      if (window.confirm('¿Reiniciar por completo el combate y el marcador?')) triviaApp.reiniciarCombate();
+      if (window.confirm('¿Reiniciar por completo el combate y el marcador?')) ejecutarAccion(() => triviaApp.reiniciarCombate());
     }
 
     window.addEventListener('DOMContentLoaded', () => {
+      for (const color of ['Roja', 'Azul']) {
+        $('turnCard' + color).addEventListener('click', (event) => {
+          if (event.target.closest('button') || $('turn' + color).disabled) return;
+          ejecutarAccion(() => triviaApp.seleccionarTurno(color.toUpperCase()));
+        });
+      }
       document.body.addEventListener('pointerdown', () => triviaApp.initAudio(), { once: true });
+      $('btnReveal').addEventListener('click', alternarSolucionModerator);
+      window.addEventListener('keydown', handleModeratorKeydown);
       triviaApp.subscribe(renderModerator);
     });
   </script>
