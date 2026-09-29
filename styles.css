@@ -22,6 +22,18 @@ html.screen-page {
   min-height: calc(100vh - 8.125rem);
 }
 
+/* Las tarjetas ceremoniales pueden superar el alto disponible: empiezan debajo del marcador. */
+body:is(.mascara-activa, .podio-activa) .screen-main {
+  align-items: flex-start;
+  padding-top: 4rem;
+}
+
+@media (min-width: 1600px) {
+  body:is(.mascara-activa, .podio-activa) .screen-main {
+    padding-top: calc(125rem / 48 + 2rem);
+  }
+}
+
 body {
   font-family: 'Outfit', sans-serif;
   background-color: #0B0F19;
@@ -305,23 +317,10 @@ body.modal-open { overflow: hidden; }
 .phase-button:not(:disabled):hover { filter: brightness(1.14); }
 .touch-button:disabled { cursor: not-allowed; opacity: .35; filter: grayscale(.35); }
 
-.solution-toggle-button {
+.return-question-button {
   border: 1px solid rgba(252, 211, 77, .42);
   background: #1e293b;
   color: #fef3c7;
-}
-
-.solution-toggle-button.is-undo {
-  border-color: #fbbf24;
-  background: linear-gradient(135deg, #b91c1c, #92400e);
-  color: #fff;
-  box-shadow: 0 0 0 2px rgba(251, 191, 36, .18), 0 0 1.4rem rgba(239, 68, 68, .38);
-  animation: panicPulse 1.15s ease-in-out infinite alternate;
-}
-
-@keyframes panicPulse {
-  from { filter: brightness(1); }
-  to { filter: brightness(1.2); box-shadow: 0 0 0 3px rgba(251, 191, 36, .25), 0 0 2rem rgba(239, 68, 68, .58); }
 }
 
 .flow-number {
@@ -451,7 +450,7 @@ body.modal-open { overflow: hidden; }
   padding: .65rem 1rem;
 }
 
-.life-card-red { border-color: rgba(248, 113, 113, .35); background: rgba(69, 10, 10, .58); }
+.life-card-red { border-color: rgba(244, 114, 182, .5); background: rgba(80, 7, 44, .7); }
 .life-card-blue { border-color: rgba(96, 165, 250, .35); background: rgba(23, 37, 84, .58); }
 .life-team { min-width: 0; text-align: left; }
 .life-caption { margin-top: .15rem; color: #94a3b8; font-size: .62rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
@@ -483,11 +482,11 @@ body.modal-open { overflow: hidden; }
 }
 
 .lucha-mask.red {
-  --mask-base: #dc2626;
-  --mask-deep: #7f1d1d;
-  --mask-accent: #fbbf24;
-  --mask-trim: #fde68a;
-  --mask-glow: rgba(239, 68, 68, .72);
+  --mask-base: #ec4899;
+  --mask-deep: #831843;
+  --mask-accent: #f9a8d4;
+  --mask-trim: #fce7f3;
+  --mask-glow: rgba(236, 72, 153, .75);
 }
 
 .lucha-mask.blue {
@@ -605,7 +604,7 @@ body.modal-open { overflow: hidden; }
 }
 .corner-score > div { width: 100%; min-width: 0; }
 
-.corner-red { border-color: rgba(248, 113, 113, .45); background: rgba(69, 10, 10, .75); }
+.corner-red { border-color: rgba(244, 114, 182, .65); background: rgba(80, 7, 44, .8); }
 .corner-blue { border-color: rgba(96, 165, 250, .45); background: rgba(23, 37, 84, .75); }
 .corner-name { font-size: .65rem; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; }
 .corner-life-masks { display: flex; min-height: 2.5rem; align-items: center; gap: clamp(.55rem, 1.4vw, .8rem); }
@@ -627,6 +626,7 @@ body.modal-open { overflow: hidden; }
 }
 
 .finale-card { border-color: #e879f9; background: linear-gradient(145deg, #4a044e, #111827 55%, #78350f); box-shadow: 0 0 70px rgba(217, 70, 239, .3); }
+#maskLoser, #podiumWinner { font-size: clamp(2rem, 4vw, 6rem); text-wrap: balance; overflow-wrap: break-word; }
 .finale-masks {
   position: relative;
   width: 120px;
@@ -656,7 +656,11 @@ body.modal-open { overflow: hidden; }
   line-height: 1.4;
   letter-spacing: .08em;
 }
-.podium-card { background: linear-gradient(145deg, #451a03, #111827 55%, #064e3b); }
+.podium-card { padding-block: 1.5rem; background: linear-gradient(145deg, #451a03, #111827 55%, #064e3b); }
+.podium-brand { display: flex; min-height: 11rem; align-items: center; justify-content: center; }
+.podium-trophy { margin-top: .25rem; font-size: 2.75rem; line-height: 1; }
+.podium-brand img { display: block; width: min(100%, 32rem); max-height: 11rem; object-fit: contain; mix-blend-mode: screen; }
+.podium-brand img[hidden] { display: none; }
 .marquee-lights { position: absolute; inset: .7rem; border: 4px dotted rgba(254, 240, 138, .8); border-radius: 1.35rem; pointer-events: none; animation: marqueeGlow 1.1s ease-in-out infinite alternate; }
 @keyframes marqueeGlow { to { filter: drop-shadow(0 0 8px #fde68a); opacity: .65; } }
 
@@ -732,13 +736,41 @@ body.modal-open { overflow: hidden; }
   .corner-life-masks { gap: .4rem; }
 }
 
+/* Auditorio: 960 × 400 px a 3840 × 2160 (1rem = 38.4px).
+   El margen inferior compensa los 100px adicionales: la contribución
+   a la fila sigue siendo 300px. Ambas tarjetas crecen hacia abajo.
+   No cambiar el grid, el padding del header ni la escala raíz: desplazaría
+   el marcador central y el área de preguntas. Medidas incluyen el borde. */
+@media (min-width: 1600px) {
+  .screen-page .corner-score {
+    width: min(100%, 25rem);
+    height: calc(125rem / 12);
+    margin-bottom: calc(-125rem / 48);
+    padding: .9rem 1.25rem;
+  }
+  .screen-page .corner-name {
+    font-size: 1.25rem;
+    line-height: 1.2;
+  }
+  .screen-page .corner-life-masks { gap: 1rem; }
+  .screen-page .corner-life-masks .lucha-mask {
+    width: 3.5rem;
+    height: 3.90625rem;
+  }
+  .screen-page .corner-life-masks .mask-number {
+    width: 1.4rem;
+    height: 1.4rem;
+    font-size: .85rem;
+  }
+}
+
 /* Turnos: conservar las tarjetas existentes y destacar la esquina activa. */
 .turn-select { cursor: pointer; text-align: left; min-height: 44px; }
 .turn-select:focus-visible { outline: 3px solid #fbbf24; outline-offset: 3px; border-radius: 4px; }
 .turn-select:disabled { cursor: default; }
 .has-turn { outline: 3px solid #fbbf24; outline-offset: 3px; }
 .turn-status { margin: .6rem 0; font-size: .85rem; font-weight: 900; }
-.turn-status[data-team="ROJA"] { color: #fca5a5; }
+.turn-status[data-team="ROJA"] { color: #f9a8d4; }
 .turn-status[data-team="AZUL"] { color: #93c5fd; }
 .turn-popup { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 4vw; background: rgba(2, 6, 23, .7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); pointer-events: none; }
 .turn-popup[hidden] { display: none; }
@@ -746,10 +778,10 @@ body.modal-open { overflow: hidden; }
 .turn-popup-card::before { content: ''; position: absolute; inset: 0; z-index: -1; opacity: .22; background: repeating-linear-gradient(-25deg, transparent 0 38px, #fff1 39px 41px), radial-gradient(ellipse at center, #ffffff55, transparent 70%); }
 .turn-popup-kicker { margin: 0 0 1vh; color: #fde68a; font-family: 'Outfit', sans-serif; font-size: clamp(18px, 2.3vw, 48px); font-weight: 900; line-height: 1.2; letter-spacing: .2em; }
 .turn-popup-corner { margin: 0; color: white; font-size: clamp(44px, min(8vw, 13vh), 160px); line-height: 1; letter-spacing: .06em; text-shadow: 3px 5px 0 #0008; }
-.turn-popup-team { margin: 0; color: #fff; font-size: clamp(90px, min(21vw, 33vh), 420px); line-height: .95; letter-spacing: .035em; -webkit-text-stroke: 2px #fff; text-shadow: 5px 7px 0 var(--turn-shadow), 9px 12px 0 #020617, 0 0 45px var(--turn-glow); }
-.turn-popup[data-team="ROJA"] { --turn-shadow: #b91c1c; --turn-glow: #ef444480; }
+.turn-popup-team { margin: 0; color: #fff; font-size: clamp(2rem, min(7vw, 11vh), 8rem); line-height: 1.05; letter-spacing: .025em; text-wrap: balance; overflow-wrap: break-word; -webkit-text-stroke: 1px #fff; text-shadow: 5px 7px 0 var(--turn-shadow), 9px 12px 0 #020617, 0 0 45px var(--turn-glow); }
+.turn-popup[data-team="ROJA"] { --turn-shadow: #be185d; --turn-glow: #ec489980; }
 .turn-popup[data-team="AZUL"] { --turn-shadow: #1d4ed8; --turn-glow: #3b82f680; }
-.turn-popup[data-team="ROJA"] .turn-popup-card { background: linear-gradient(135deg, #450a0a, #991b1b 50%, #450a0a); }
+.turn-popup[data-team="ROJA"] .turn-popup-card { background: linear-gradient(135deg, #500724, #be185d 50%, #500724); }
 .turn-popup[data-team="AZUL"] .turn-popup-card { background: linear-gradient(135deg, #0b163d, #1e40af 50%, #0b163d); }
 
 
@@ -758,6 +790,8 @@ body.modal-open { overflow: hidden; }
 body.presentacion-activa { overflow: hidden; }
 body.presentacion-activa > header,
 body.presentacion-activa > main { display: none; }
-.standby-screen { position: fixed; inset: 0; z-index: 90; overflow: hidden; background: #004c4b; }
-.standby-screen::before { content: ''; position: absolute; inset: -30px; background: url('assets/presentacion-campeon.png') center / cover no-repeat; filter: blur(24px) brightness(.55); }
+.standby-screen { position: fixed; inset: 0; z-index: 90; overflow: hidden; background: #000; }
+.standby-screen::before { content: ''; position: absolute; inset: -30px; background: url('assets/presentacion-dinamita-vs-leyendas.png') center / cover no-repeat; filter: blur(24px) brightness(.55); }
 .standby-screen img { position: absolute; width: 100%; height: 100%; object-fit: contain; object-position: center; }
+.waiting-video-screen { position: fixed; inset: 0; z-index: 90; background: #000; }
+.waiting-video-screen video { display: block; width: 100%; height: 100%; object-fit: contain; }

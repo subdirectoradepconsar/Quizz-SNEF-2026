@@ -32,6 +32,29 @@ test('prepared boo starts immediately and repeated errors restart without overla
   sources[1].onended();
   assert.equal(a.abucheoSource, null);
 });
+test('prepared bell and answer audio start without seeking an MP3', () => {
+  const a = Object.create(TriviaApp.prototype);
+  const sources = [];
+  const ramps = [];
+  a.campanaBuffer = {};
+  a.gritosBuffer = { duration: 5 };
+  a.audioContext = {
+    state: 'running', currentTime: 10, destination: {},
+    createBufferSource() {
+      const source = { connect: () => ({ connect() {} }), disconnect() {}, start(...args) { this.args = args; }, stop() {} };
+      sources.push(source);
+      return source;
+    },
+    createGain() {
+      return { gain: { setValueAtTime(...args) { ramps.push(args); }, linearRampToValueAtTime(...args) { ramps.push(args); } }, disconnect() {} };
+    }
+  };
+  a.reproducirEfecto('CAMPANA');
+  a.reproducirEfecto('ACIERTO');
+  assert.deepEqual(sources[0].args, [10, 0]);
+  assert.deepEqual(sources[1].args, [10, 2, 2]);
+  assert.deepEqual(ramps.at(-1), [0, 12]);
+});
 const storage = new Map();
 global.localStorage = { getItem: key => storage.get(key) || null, setItem: (key, value) => storage.set(key, value) };
 let sent = [];
@@ -58,6 +81,15 @@ function database(state) {
     }
   };
 }
+
+test('both podium routes replay the correct-answer effect', async () => {
+  const winner = app({ ...estadoInicial, fase: 'MASCARA_VS_MASCARA', ganadorCombate: 'ROJA' });
+  assert.equal(await winner.irAlPodio(), true);
+  assert.equal(winner.state.efectoSonido, 'ACIERTO');
+  const manual = app();
+  assert.equal(await manual.cambiarFase('PODIO'), true);
+  assert.equal(manual.state.efectoSonido, 'ACIERTO');
+});
 
 test('selection can be corrected before answering; teams still play blocks of three', async () => {
   const a=app();
@@ -106,6 +138,7 @@ test('undo restores automatic life penalty, preserves manual penalties and cance
   await a.seleccionarOpcion(answers(a).wrong);
   await a.modificarVida('azul',-1);
   const restored=app(a.state);
+  await restored.ocultarSolucion();
   await restored.deshacerUltimoIntento();
   assert.equal(restored.state.marcador.esquinaAzul.vidas,2);
   assert.equal(restored.state.turnoActual,'AZUL');
@@ -164,12 +197,15 @@ test('Sheets contains 18 fixed question positions and one final submission',asyn
  }
  assert.equal(a.state.ganadorCombate,'AZUL');assert.equal(sent.length,1);
  assert.equal(sent[0].historial.length,18);
- assert.equal(sent[0].historial[0].equipoTurno,'Esquina Roja');
- assert.equal(sent[0].historial[3].equipoTurno,'Esquina Azul');
+ assert.equal(sent[0].ganador,'Los Hermanos Dinamita del Retiro');
+ assert.equal(sent[0].marcadorFinal,'Las Indestructibles Leyendas del Ahorro: 0 | Los Hermanos Dinamita del Retiro: 2');
+ assert.equal(sent[0].historial[0].equipoTurno,'Las Indestructibles Leyendas del Ahorro');
+ assert.match(sent[0].historial[0].respuestaElegida,/Las Indestructibles Leyendas del Ahorro/);
+ assert.equal(sent[0].historial[3].equipoTurno,'Los Hermanos Dinamita del Retiro');
  assert.equal(sent[0].historial[6].puntoPara,'Nadie');
  assert.equal(sent[0].historial[12],null);
- assert.equal(construirHistorialSheets(a.state)[11].puntoPara,'Esquina Azul');
- await a.reiniciarCombate();assert.equal(a.state.fase,'PRESENTACION');
+ assert.equal(construirHistorialSheets(a.state)[11].puntoPara,'Los Hermanos Dinamita del Retiro');
+ await a.reiniciarCombate();assert.equal(a.state.fase,'VIDEO_ESPERA');
  assert.equal(a.state.equipoInicialCaida,null);assert.equal(a.state.avanceAutomaticoEn,null);
 });
 test('transaction failure preserves state and releases pending flag',async()=>{

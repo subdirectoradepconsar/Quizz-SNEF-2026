@@ -1,6 +1,7 @@
 // El historial persistente contiene una entrada por pregunta, con todos sus intentos.
-function nombreEsquina(esquina) {
-  return esquina === 'ROJA' ? 'Esquina Roja' : esquina === 'AZUL' ? 'Esquina Azul' : 'Nadie';
+function nombreEquipoSheets(esquina) {
+  return esquina === 'ROJA' ? 'Las Indestructibles Leyendas del Ahorro'
+    : esquina === 'AZUL' ? 'Los Hermanos Dinamita del Retiro' : 'Nadie';
 }
 function otraEsquina(esquina) { return esquina === 'ROJA' ? 'AZUL' : esquina === 'AZUL' ? 'ROJA' : null; }
 function claveRegistro(state) { return 'p' + ((state.caidaActual - 1) * 6 + state.preguntaIndex); }
@@ -9,14 +10,14 @@ function construirHistorialSheets(state) {
     const registro = state.historialPreguntas['p' + i];
     if (!registro) return null;
     return {
-      equipoTurno: registro.intentos.map(item => nombreEsquina(item.equipo)).join(' → '),
+      equipoTurno: registro.intentos.map(item => nombreEquipoSheets(item.equipo)).join(' → '),
       pregunta: registro.pregunta,
       respuestaElegida: registro.intentos.map((item, index) =>
-        (index + 1) + '. ' + nombreEsquina(item.equipo) + ': ' +
+        (index + 1) + '. ' + nombreEquipoSheets(item.equipo) + ': ' +
         (item.opcion >= 0 ? String.fromCharCode(65 + item.opcion) + ' · ' : '') + item.respuesta +
         (item.correcta ? ' ✅' : ' ❌')
       ).join(' / '),
-      puntoPara: nombreEsquina(registro.puntoPara)
+      puntoPara: nombreEquipoSheets(registro.puntoPara)
     };
   });
 }
@@ -26,8 +27,8 @@ function enviarPartidaAGoogleSheets(state) {
   localStorage.setItem('trivia_num_partida', numPartida);
   const payload = {
     numeroPartida: numPartida,
-    ganador: nombreEsquina(state.ganadorCombate),
-    marcadorFinal: state.caidasGanadas.roja + ' - ' + state.caidasGanadas.azul,
+    ganador: nombreEquipoSheets(state.ganadorCombate),
+    marcadorFinal: `${nombreEquipoSheets('ROJA')}: ${state.caidasGanadas.roja} | ${nombreEquipoSheets('AZUL')}: ${state.caidasGanadas.azul}`,
     historial: construirHistorialSheets(state)
   };
   return fetch(APPS_SCRIPT_URL, {
@@ -275,7 +276,7 @@ const estadoInicial = {
   inicioCartelCaida: null
 };
 
-const FASES = ['PRESENTACION', 'INTRO', 'CARTEL_CAIDA', 'PREGUNTA', 'REVELACION', 'MASCARA_VS_MASCARA', 'PODIO'];
+const FASES = ['VIDEO_ESPERA', 'PRESENTACION', 'INTRO', 'CARTEL_CAIDA', 'PREGUNTA', 'REVELACION', 'MASCARA_VS_MASCARA', 'PODIO'];
 const ESQUINAS = ['ROJA', 'AZUL'];
 const RESULTADOS_PREGUNTA = [...ESQUINAS, 'NINGUNO'];
 const TIPOS_IMPACTO = ['correct', 'incorrect'];
@@ -714,10 +715,10 @@ class TriviaApp {
   cambiarFase(fase) {
     const nuevaFase = String(fase || '').toUpperCase();
     if (!FASES.includes(nuevaFase)) return false;
-    if (this.combateTerminado() && !['PRESENTACION', 'MASCARA_VS_MASCARA', 'PODIO'].includes(nuevaFase)) return false;
+    if (this.combateTerminado() && !['VIDEO_ESPERA', 'PRESENTACION', 'MASCARA_VS_MASCARA', 'PODIO'].includes(nuevaFase)) return false;
     this.state.avanceAutomaticoEn = null;
     this.state.fase = nuevaFase;
-    this.state.efectoSonido = null;
+    this.state.efectoSonido = nuevaFase === 'PODIO' ? 'ACIERTO' : null;
     this.actualizarVisibilidadSolucion(false);
     this.state.inicioCartelCaida = nuevaFase === 'CARTEL_CAIDA' ? Date.now() : null;
     this.publicar();
@@ -727,7 +728,7 @@ class TriviaApp {
   irAlPodio() {
     if (!this.combateTerminado() || this.state.fase !== 'MASCARA_VS_MASCARA') return false;
     this.state.fase = 'PODIO';
-    this.state.efectoSonido = null;
+    this.state.efectoSonido = 'ACIERTO';
     this.actualizarVisibilidadSolucion(false);
     this.publicar();
     return true;
@@ -735,6 +736,7 @@ class TriviaApp {
 
   reiniciarCombate() {
     this.state = clonar(estadoInicial);
+    this.state.fase = 'VIDEO_ESPERA';
     this.state.partidaId = globalThis.crypto.randomUUID();
     this.state.ordenPreguntas = crearOrdenPreguntas();
     this.state.inicioCartelCaida = null;
@@ -749,47 +751,69 @@ class TriviaApp {
     }
     if (this.audioContext?.state === 'suspended') this.audioContext.resume().catch(() => {});
     this.prepararAbucheo();
+    this.prepararSonido('correctAnswerAudio', 'gritosBuffer', 'gritosPreparacion');
+    this.prepararSonido('boxingBellAudio', 'campanaBuffer', 'campanaPreparacion');
   }
 
   prepararAbucheo() {
-    const audio = document.getElementById('incorrectAnswerAudio');
-    if (!audio || !this.audioContext || this.abucheoPreparacion) return;
-    // Descargar y decodificar antes de la respuesta evita iniciar el MP3 en frío.
-    this.abucheoPreparacion = fetch(audio.src)
+    this.prepararSonido('incorrectAnswerAudio', 'abucheoBuffer', 'abucheoPreparacion');
+  }
+
+  prepararSonido(audioId, bufferKey, preparacionKey) {
+    const audio = document.getElementById(audioId);
+    if (!audio || !this.audioContext || this[bufferKey] || this[preparacionKey]) return;
+    // Decodificar antes del primer uso evita el retraso del MP3 al iniciar o buscar.
+    this[preparacionKey] = fetch(audio.src)
       .then(respuesta => {
-        if (!respuesta.ok) throw new Error('No se pudo cargar el abucheo');
+        if (!respuesta.ok) throw new Error('No se pudo cargar el sonido');
         return respuesta.arrayBuffer();
       })
       .then(datos => this.audioContext.decodeAudioData(datos))
-      .then(buffer => { this.abucheoBuffer = buffer; })
+      .then(buffer => { this[bufferKey] = buffer; })
       .catch(() => {
         // El elemento de audio precargado sigue disponible como respaldo.
-        this.abucheoPreparacion = null;
+        this[preparacionKey] = null;
       });
+  }
+
+  reproducirBuffer(buffer, sourceKey, offset = 0, duracion = null, desvanecer = false) {
+    const contexto = this.audioContext;
+    if (!buffer || contexto?.state !== 'running') return false;
+    if (this[sourceKey]) this[sourceKey].stop();
+    const source = contexto.createBufferSource();
+    source.buffer = buffer;
+    let ganancia = null;
+    if (desvanecer) {
+      ganancia = contexto.createGain();
+      const inicio = contexto.currentTime;
+      ganancia.gain.setValueAtTime(1, inicio);
+      ganancia.gain.setValueAtTime(1, inicio + Math.max(0, duracion - 0.5));
+      ganancia.gain.linearRampToValueAtTime(0, inicio + duracion);
+      source.connect(ganancia).connect(contexto.destination);
+    } else source.connect(contexto.destination);
+    source.onended = () => {
+      source.disconnect();
+      if (ganancia) ganancia.disconnect();
+      if (this[sourceKey] === source) this[sourceKey] = null;
+    };
+    this[sourceKey] = source;
+    if (duracion === null) source.start(contexto.currentTime, offset);
+    else source.start(contexto.currentTime, offset, duracion);
+    return true;
   }
 
   reproducirEfecto(efecto) {
     if (!efecto) return;
     if (efecto === 'ABUCHEO') {
-      if (this.abucheoBuffer && this.audioContext?.state === 'running') {
-        if (this.abucheoSource) this.abucheoSource.stop();
-        const source = this.audioContext.createBufferSource();
-        source.buffer = this.abucheoBuffer;
-        source.connect(this.audioContext.destination);
-        source.onended = () => {
-          source.disconnect();
-          if (this.abucheoSource === source) this.abucheoSource = null;
-        };
-        this.abucheoSource = source;
-        source.start();
-        return;
-      }
+      if (this.reproducirBuffer(this.abucheoBuffer, 'abucheoSource')) return;
       const abucheo = document.getElementById('incorrectAnswerAudio');
       if (abucheo) { abucheo.currentTime = 0; abucheo.play().catch(() => {}); }
       return;
     }
     if (efecto === 'ACIERTO') {
       // Saltar los primeros dos segundos y reproducir del segundo 2 al 4.
+      const duracion = Math.min(2, (this.gritosBuffer?.duration || 0) - 2);
+      if (duracion > 0 && this.reproducirBuffer(this.gritosBuffer, 'gritosSource', 2, duracion, true)) return;
       const gritos = document.getElementById('correctAnswerAudio');
       if (gritos) {
         clearInterval(this.gritosFadeInterval);
@@ -811,6 +835,7 @@ class TriviaApp {
       return;
     }
     if (efecto === 'CAMPANA') {
+      if (this.reproducirBuffer(this.campanaBuffer, 'campanaSource')) return;
       const campana = document.getElementById('boxingBellAudio');
       if (campana) { campana.currentTime = 0; campana.play().catch(() => {}); }
       return;

@@ -7,16 +7,19 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <link rel="stylesheet" href="styles.css?v=20260907-11">
+  <link rel="stylesheet" href="styles.css?v=20260929-7">
 </head>
 <body id="screenBody" class="arena-shell presentacion-activa min-h-screen overflow-x-hidden text-white select-none">
   <audio id="boxingBellAudio" src="Sonidos/Sonidocampanadebox.mp3" preload="auto"></audio>
   <audio id="correctAnswerAudio" src="Sonidos/Gritos.mp3" preload="auto"></audio>
   <audio id="incorrectAnswerAudio" src="Sonidos/abucheo-tm.mp3" preload="auto"></audio>
-  <section id="phasePresentacion" class="standby-screen" aria-label="Presentación: Campeón de tu futuro">
-    <img src="assets/presentacion-campeon.png" alt="Puerquito luchador con máscara verde y lentes. Campeón de tu futuro. SNEF 2026. ¡En breve comenzamos! Prepárate para entrar al ring." fetchpriority="high">
+  <section id="phaseVideoEspera" class="waiting-video-screen hidden" aria-label="Video de Espera">
+    <video id="waitingVideo" src="assets/logo_animado_chispas_llamas_4k_v2.mp4" muted loop playsinline preload="auto" aria-label="Animación de espera"></video>
   </section>
-  <div id="screenTurnPopup" class="turn-popup" role="status" aria-live="polite" hidden><div class="turn-popup-card"><p class="turn-popup-kicker">¡Es turno de la</p><p class="turn-popup-corner">Esquina</p><p id="screenTurnPopupText" class="turn-popup-team"></p></div></div>
+  <section id="phasePresentacion" class="standby-screen" aria-label="Presentación del combate">
+    <img src="assets/presentacion-dinamita-vs-leyendas.png" alt="Los Hermanos Dinamita del Retiro contra Las Indestructibles Leyendas del Ahorro" fetchpriority="high">
+  </section>
+  <div id="screenTurnPopup" class="turn-popup" role="status" aria-live="polite" hidden><div class="turn-popup-card"><p class="turn-popup-kicker">¡Es turno de</p><p id="screenTurnPopupText" class="turn-popup-team"></p></div></div>
   <div id="screenImpactBanner" class="impact-banner banner-incorrect" role="status" aria-live="assertive">❌ ¡RESPUESTA INCORRECTA!</div>
   <div id="screenMicroteachingModal" class="microteaching-overlay" role="dialog" aria-modal="true" aria-labelledby="screenAnswerTitle" aria-describedby="screenCorrectAnswer screenMicroteachingTitle screenMicroteachingText" tabindex="-1" hidden>
     <section class="microteaching-dialog">
@@ -30,7 +33,7 @@
   <header class="relative z-20 mx-auto grid max-w-7xl grid-cols-[1fr_auto_1fr] items-center gap-3 px-3 py-4 md:gap-8 md:px-8">
     <section id="cornerRoja" class="corner-score corner-red">
       <div>
-        <p class="corner-name text-red-300">Esquina roja</p>
+        <p class="corner-name text-pink-300">Las Indestructibles Leyendas del Ahorro</p>
         <div id="screenVidasRoja" class="corner-life-masks mt-1"></div>
       </div>
     </section>
@@ -44,7 +47,7 @@
 
     <section id="cornerAzul" class="corner-score corner-blue justify-self-end">
       <div class="text-right">
-        <p class="corner-name text-blue-300">Esquina azul</p>
+        <p class="corner-name text-blue-300">Los Hermanos Dinamita del Retiro</p>
         <div id="screenVidasAzul" class="corner-life-masks mt-1 justify-end"></div>
       </div>
     </section>
@@ -79,19 +82,20 @@
     <section id="phaseMascara" class="phase-panel hidden w-full text-center">
       <div class="finale-card mx-auto max-w-5xl">
         <p class="font-lucha text-3xl tracking-widest text-fuchsia-300 md:text-5xl">MÁSCARA VS MÁSCARA</p>
-        <div id="finaleMasks" class="finale-masks" role="img" aria-label="Máscara roja y dorada contra máscara azul de lucha libre mexicana"></div>
-        <h1 id="maskLoser" class="font-lucha text-5xl leading-none text-white md:text-8xl">LA ESQUINA AZUL ENTREGA LA MÁSCARA</h1>
+        <div id="finaleMasks" class="finale-masks" role="img" aria-label="Máscara rosa contra máscara azul de lucha libre mexicana"></div>
+        <h1 id="maskLoser" class="font-lucha text-5xl leading-none text-white md:text-8xl">¡LOS EQUIPOS SE ENFRENTAN!</h1>
         <p class="mx-auto mt-7 max-w-4xl text-xl font-extrabold leading-relaxed text-amber-200 md:text-3xl">“¿Qué vas a hacer hoy para estar mejor preparado para decidir sobre tu retiro?”</p>
-        <p id="maskWinner" class="mt-7 text-base font-black uppercase tracking-[.25em] text-emerald-300 md:text-xl">Esquina roja · Campeona del combate</p>
+        <p id="maskWinner" class="mt-7 text-base font-black uppercase tracking-[.25em] text-emerald-300 md:text-xl">El combate está por comenzar</p>
       </div>
     </section>
 
     <section id="phasePodio" class="phase-panel hidden w-full text-center">
       <div class="podium-card mx-auto max-w-5xl">
-        <div class="text-7xl md:text-9xl">🏆</div>
+        <div class="podium-brand"><img id="podiumTeamLogo" alt="" hidden></div>
         <p class="mt-3 text-sm font-black uppercase tracking-[.4em] text-amber-300">Lucha Libre · SNEF 2026</p>
-        <h1 id="podiumWinner" class="font-lucha mt-4 text-6xl leading-none text-white md:text-9xl">¡ESQUINA ROJA CAMPEONA!</h1>
-        <div class="mx-auto mt-7 max-w-3xl rounded-3xl border-2 border-amber-300 bg-amber-300/10 p-5 text-xl font-black text-amber-100 md:text-3xl">🎟️ Entrega de fichas para la ruleta de premios</div>
+        <h1 id="podiumWinner" class="font-lucha mt-4 text-6xl leading-none text-white md:text-9xl">¡EQUIPO CAMPEÓN!</h1>
+        <div class="podium-trophy" aria-hidden="true">🏆</div>
+        <div class="mx-auto mt-3 max-w-3xl rounded-3xl border-2 border-amber-300 bg-amber-300/10 p-5 text-xl font-black text-amber-100 md:text-3xl">🎟️ Entrega de fichas para la ruleta de premios</div>
         <p class="mt-6 text-lg font-bold text-slate-300 md:text-2xl">Hoy + lo que viene = Plenitud</p>
       </div>
     </section>
@@ -99,9 +103,15 @@
 
   <div id="screenFallBanner" class="fall-banner" role="status" hidden></div>
   <script src="questions.js?v=20260907-1"></script>
-  <script src="app.js?v=20260908-2"></script>
+  <script src="app.js?v=20260929-3"></script>
   <script>
     const $ = (id) => document.getElementById(id);
+    const nombreEquipo = (equipo) => equipo === 'ROJA'
+      ? 'Las Indestructibles Leyendas del Ahorro'
+      : equipo === 'AZUL' ? 'Los Hermanos Dinamita del Retiro' : 'Nadie';
+    const tituloCampeon = (equipo) => equipo === 'ROJA'
+      ? '¡CAMPEONAS: LAS INDESTRUCTIBLES LEYENDAS DEL AHORRO!'
+      : '¡CAMPEONES: LOS HERMANOS DINAMITA DEL RETIRO!';
     let primeraActualizacion = true;
     let ultimaFirmaAudio = '';
     let ultimaSecuenciaImpacto = null;
@@ -113,7 +123,7 @@
     function renderTurno(state) {
       const activo = !state.puntoPregunta && !state.ganadorCombate && !ganadorPorVidas(state) && ['INTRO', 'CARTEL_CAIDA', 'PREGUNTA'].includes(state.fase);
       const equipo = activo ? state.turnoActual : null;
-      const texto = equipo ? '¡Turno de la ' + nombreEsquina(equipo).toLowerCase() + '!' : activo ? 'Esperando equipo' : 'Pregunta cerrada';
+      const texto = equipo ? '¡Turno de ' + nombreEquipo(equipo) + '!' : activo ? 'Esperando equipo' : 'Pregunta cerrada';
       $('screenTurn').textContent = texto;
       $('screenTurn').dataset.team = equipo || '';
       for (const color of ['Roja', 'Azul']) $('corner' + color).classList.toggle('has-turn', equipo === color.toUpperCase());
@@ -121,7 +131,7 @@
       if (firma !== ultimaFirmaTurno) {
         clearTimeout(turnoPopupTimeout);
         $('screenTurnPopup').hidden = !equipo;
-        $('screenTurnPopupText').textContent = equipo === 'ROJA' ? 'ROJA!' : equipo === 'AZUL' ? 'AZUL!' : '';
+        $('screenTurnPopupText').textContent = equipo ? nombreEquipo(equipo) + '!' : '';
         $('screenTurnPopup').dataset.team = equipo || '';
         if (equipo) turnoPopupTimeout = setTimeout(() => { $('screenTurnPopup').hidden = true; }, 2500);
         ultimaFirmaTurno = firma;
@@ -129,7 +139,7 @@
     }
 
     function showOnly(id) {
-      ['phasePresentacion', 'phaseCartel', 'phasePregunta', 'phaseMascara', 'phasePodio'].forEach((phaseId) => $(phaseId).classList.toggle('hidden', phaseId !== id));
+      ['phaseVideoEspera', 'phasePresentacion', 'phaseCartel', 'phasePregunta', 'phaseMascara', 'phasePodio'].forEach((phaseId) => $(phaseId).classList.toggle('hidden', phaseId !== id));
     }
 
     function renderVidas(targetId, vidasRestantes, color) {
@@ -155,10 +165,16 @@
         hideImpactBanner('screenImpactBanner');
         impactoEnCurso = null;
       }
+      const videoEspera = state.fase === 'VIDEO_ESPERA';
       const presentacion = state.fase === 'PRESENTACION';
-      document.body.classList.toggle('presentacion-activa', presentacion);
-      if (presentacion) {
-        showOnly('phasePresentacion');
+      const video = $('waitingVideo');
+      document.body.classList.toggle('presentacion-activa', presentacion || videoEspera);
+      document.body.classList.toggle('mascara-activa', state.fase === 'MASCARA_VS_MASCARA');
+      document.body.classList.toggle('podio-activa', state.fase === 'PODIO');
+      if (videoEspera || presentacion) {
+        showOnly(videoEspera ? 'phaseVideoEspera' : 'phasePresentacion');
+        if (videoEspera && typeof video.play === 'function' && video.paused) video.play().catch(() => {});
+        if (!videoEspera && typeof video.pause === 'function' && !video.paused) { video.pause(); video.currentTime = 0; }
         hideImpactBanner('screenImpactBanner');
         clearTimeout(turnoPopupTimeout);
         $('screenTurnPopup').hidden = true;
@@ -169,13 +185,14 @@
         reproducirCambio(state);
         return;
       }
+      if (typeof video.pause === 'function' && !video.paused) { video.pause(); video.currentTime = 0; }
       renderTurno(state);
       const bloqueCaida = BANCO_PREGUNTAS[state.caidaActual];
       const { bloque, pregunta, totalPreguntasCaida } = obtenerPreguntaActual(state);
       const revelada = state.mostrarSolucion === true;
       const ganadorCaida = ganadorPorVidas(state);
       $('screenFallBanner').hidden = !ganadorCaida || revelada;
-      $('screenFallBanner').textContent = ganadorCaida ? `¡${bloque.etiqueta} para la Esquina ${ganadorCaida === 'ROJA' ? 'Roja' : 'Azul'}!` : '';
+      $('screenFallBanner').textContent = ganadorCaida ? `¡${bloque.etiqueta} para ${nombreEquipo(ganadorCaida)}!` : '';
 
       if (ultimaSecuenciaImpacto === null) ultimaSecuenciaImpacto = state.secuenciaImpacto;
       else {
@@ -217,11 +234,23 @@
       } else if (state.fase === 'MASCARA_VS_MASCARA') {
         showOnly('phaseMascara');
         const perdedora = state.ganadorCombate === 'ROJA' ? 'AZUL' : 'ROJA';
-        $('maskLoser').textContent = `LA ESQUINA ${perdedora} ENTREGA LA MÁSCARA`;
-        $('maskWinner').textContent = `Esquina ${state.ganadorCombate || '—'} · Campeona del combate`;
+        $('maskLoser').textContent = state.ganadorCombate
+          ? `${nombreEquipo(perdedora).toUpperCase()} ENTREGA LA MÁSCARA`
+          : '¡LOS EQUIPOS SE ENFRENTAN!';
+        $('maskWinner').textContent = state.ganadorCombate
+          ? tituloCampeon(state.ganadorCombate)
+          : 'El combate está por comenzar';
       } else if (state.fase === 'PODIO') {
         showOnly('phasePodio');
-        $('podiumWinner').textContent = `¡ESQUINA ${state.ganadorCombate || '—'} CAMPEONA!`;
+        const logo = $('podiumTeamLogo');
+        logo.hidden = !state.ganadorCombate;
+        if (state.ganadorCombate) {
+          logo.src = state.ganadorCombate === 'ROJA' ? 'assets/leyendas.png' : 'assets/dinamita.png';
+          logo.alt = `Logo de ${nombreEquipo(state.ganadorCombate)}`;
+        }
+        $('podiumWinner').textContent = state.ganadorCombate
+          ? state.ganadorCombate === 'ROJA' ? '¡CAMPEONAS!' : '¡CAMPEONES!'
+          : '¡EQUIPO CAMPEÓN!';
       }
 
       // La enseñanza aparece cuando el aviso termina de desvanecerse.
